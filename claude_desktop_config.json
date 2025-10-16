@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "radkit-mcp-server": {
+      "command": "<absolute_path_to_the_repository>/radkit-mcp-server/.venv/bin/python",
+      "args": [
+        "<absolute_path_to_the_repository>/radkit-mcp-server/mcp_server.py"
+      ],
+      "description": "Cisco RADKit MCP Server - PoC"
+    }
+  }
+}

@@ -1,0 +1,142 @@
+import os
+import sys
+import json
+from fastmcp import FastMCP
+from dotenv import load_dotenv
+from radkit_client.sync import Client, Service
+
+
+load_dotenv()
+mcp = FastMCP(name="RADKitMCP")
+
+
+def _get_radkit_service_handler() -> Service:
+    """
+    Dependency function that initializes a Radkit service handler and yields the
+    resulting Service instance. It also handles exceptions during the handler
+    initialization process, returning a JSON error string.
+    """
+    try:
+        with Client.create() as client:
+            radkit_service_client = client.certificate_login(os.getenv("RADKIT_SERVICE_USERNAME"))
+            radkit_service_handler = radkit_service_client.service(os.getenv("RADKIT_SERVICE_CODE")).wait()
+            print(f"🔌 Yielding a RADKit connection for {os.getenv('RADKIT_SERVICE_USERNAME')}-{os.getenv('RADKIT_SERVICE_CODE')}", file=sys.stderr)
+            yield radkit_service_handler
+    except Exception as ex:
+        error_dict = {
+            "error": f"⚠️ Error: {str(ex)}"
+        }
+        return json.dumps(error_dict)
+
+
+@mcp.tool()
+def get_device_inventory_names() -> str:
+    """Returns a string with the names of the devices onboarded in the Cisco RADKit service's inventory.
+    Use this first when the user asks about "devices", "network", or "all devices".
+
+    Returns:
+        str: List of devices onboarded in the Cisco RADKit service's inventory [ex. {"p0-2e", ""p1-2e"}]
+    """
+    radkit_service_handler_gen = _get_radkit_service_handler()
+    radkit_service_handler = next(radkit_service_handler_gen)
+    return str({ device.name for device in radkit_service_handler.inventory.values() })
+
+
+@mcp.tool()
+def get_device_attributes(target_device:str) -> str:
+    """Returns a JSON string with the attributes of the specified target device.
+    Always try this first when the user asks about a specific device.
+    
+    Inputs:
+        target_device: (str) Target device to get the attributes from.
+
+    Returns:
+        str: JSON string with the following information:
+        {
+            "name": (str) Name of the device as onboarded in the inventory of this Cisco RADKit service
+            "host": (str) IP address of the device
+            "device_type": (str) Platform or Device Type type of the device
+            "description": (str) Description of the device
+            "terminal_config": (bool) The device's terminal is enabled for configurations
+            "netconf_config": (bool) The device is enabled with NETCONF
+            "snmp_version": (bool) The device is enabled with SNMP
+            "swagger_config": (bool) The device has a Swagger definition
+            "http_config": (bool) The device is enabled with HTTP
+            "forwarded_tcp_ports": [str] The device has forwarded TCP ports 
+            "terminal_capabilities": [str] Enlists the capabilities of the device's terminal
+        }
+        
+        Example:
+        {
+            "name": "p0-2e",
+            "host": "10.48.172.59",
+            "device_type": "IOS_XE",
+            "description": "",
+            "terminal_config": true,
+            "netconf_config": false,
+            "snmp_version": false,
+            "swagger_config": false,
+            "http_config": false,
+            "forwarded_tcp_ports": "",
+            "terminal_capabilities": [
+                "DOWNLOAD",
+                "INTERACTIVE",
+                "EXEC",
+                "UPLOAD"
+            ]
+        }
+        
+    Raises:
+        Exception: Catches any potential errors during the fetching of the device's information in the Cisco RADKit service's inventory.
+    """
+    inventory_dict = {}
+    inventory_dict["name"] = target_device
+    radkit_service_handler_gen = _get_radkit_service_handler()
+    radkit_service_handler = next(radkit_service_handler_gen)
+    device_attributes = radkit_service_handler.inventory[target_device].attributes.internal
+    for key in radkit_service_handler.inventory[target_device].attributes.internal.keys():
+        inventory_dict[key] = device_attributes[key]
+    return json.dumps(inventory_dict)
+
+
+@mcp.tool()
+def exec_cli_command_in_device(target_device:str, cli_command:str) -> str:
+    """Executes a CLI command in the target device, and returns the raw result as text.
+    Choose the CLI command intelligently based on the device type (e.g., for Cisco IOS, use "show version" or "show interfaces" accordingly).
+    You can get the device type / platform using the tool get_device_inventory_names().
+    - Use this only if:
+        * The requested information is not available in get_device_attributes(), OR
+        * The user explicitly asks to "run" or "execute" a command.
+
+    Args:
+        target_device (str): Target device to execute a CLI command at.
+        cli_command (str): CLI command to execute in the target device. It can be any read/write command.
+
+    Returns:
+        str: Raw output of the CLI command's execution
+        
+        Example:
+        p0-2E#show ip interface brief
+        Interface              IP-Address      OK? Method Status                Protocol
+        Vlan1                  unassigned      YES NVRAM  up                    up      
+        Vlan1021               192.168.123.1   YES NVRAM  up                    up      
+        Vlan1022               172.16.123.1    YES NVRAM  up                    up      
+        Vlan1023               172.16.121.1    YES NVRAM  up                    up      
+        Vlan1025               172.16.126.1    YES NVRAM  up                    up      
+        GigabitEthernet0/0     10.48.172.59    YES NVRAM  up                    up      
+        GigabitEthernet1/0/1   unassigned      YES unset  down                  down    
+        GigabitEthernet1/0/2   unassigned      YES unset  down                  down    
+        GigabitEthernet1/0/3   192.168.122.35  YES NVRAM  up                    up      
+        p0-2E#
+        
+    Raises:
+        Exception: Catches any potential errors during the execution of the desired CLI command in the target device.
+    """
+    radkit_service_handler_gen = _get_radkit_service_handler()
+    radkit_service_handler = next(radkit_service_handler_gen)
+    return radkit_service_handler.inventory[target_device].exec(cli_command).wait().result.data
+
+
+if __name__ == "__main__":
+    print(f'✅ RADKit MCP Server running! (User {os.getenv("RADKIT_SERVICE_USERNAME")} for service {os.getenv("RADKIT_SERVICE_CODE")})', file=sys.stderr)
+    mcp.run(transport="stdio")
