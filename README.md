@@ -145,11 +145,11 @@ Afterwards, edit the **radkit-mcp-server/claude_desktop_config.json** file inclu
 {
   "mcpServers": {
     "radkit-mcp-server": {
-      "command": "/Users/ponchotitlan/Documents/radkit-mcp-server/.venv/bin/python",
+      "command": "/Users/ponchotitlan/Documents/radkit-mcp-server-community/.venv/bin/python",
       "args": [
-        "/Users/ponchotitlan/Documents/radkit-mcp-server/mcp_server.py"
+        "/Users/ponchotitlan/Documents/radkit-mcp-server-community/mcp_server.py"
       ],
-      "description": "Cisco RADKit MCP Server - PoC"
+      "description": "Cisco RADKit MCP Server - Community"
     }
   }
 }
