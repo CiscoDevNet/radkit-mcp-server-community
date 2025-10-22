@@ -223,7 +223,7 @@ Not everything is query information! **If the Cisco RADKit user onboarded in the
     <a href="mailto:alfsando@cisco.com?subject=Question%20about%20[RADKIT%20MCP]&body=Hello,%0A%0AI%20have%20a%20question%20regarding%20your%20project.%0A%0AThanks!">
         <img src="https://img.shields.io/badge/Contact%20me!-blue?style=flat&logo=gmail&labelColor=555555&logoColor=white" alt="Contact Me via Email!"/>
     </a>
-    <a href="https://github.com/ponchotitlan/radkit-mcp-server/issues/new">
+    <a href="https://github.com/CiscoDevNet/radkit-mcp-server-community/issues/new">
       <img src="https://img.shields.io/badge/Open%20Issue-2088FF?style=flat&logo=github&labelColor=555555&logoColor=white" alt="Open an Issue"/>
     </a>
     <a href="https://github.com/ponchotitlan/radkit-mcp-server/fork">
