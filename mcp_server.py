@@ -1,10 +1,8 @@
-# Copyright 2025 Cisco Systems, Inc. and its affiliates
-#
-# SPDX-License-Identifier: Apache-2.0
-
 import os
+import sys
 import json
 import logging
+import asyncio
 from fastmcp import FastMCP
 from dotenv import load_dotenv
 from radkit_client.sync import Client, Service
@@ -29,42 +27,121 @@ else:
 logger = logging.getLogger(__name__)
 
 
-def _get_radkit_service_handler() -> Service:
+class RADKitServiceManager:
     """
-    Dependency function that initializes a Radkit service handler and yields the
-    resulting Service instance. It also handles exceptions during the handler
-    initialization process, returning a JSON error string.
+    Manages a single RADKit service connection throughout the application lifecycle.
+    """
+    _instance = None
+    _client_context = None
+    _client = None
+    _service_handler = None
+    _lock = asyncio.Lock()
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(RADKitServiceManager, cls).__new__(cls)
+        return cls._instance
+    
+    async def get_service_handler(self) -> Service:
+        """
+        Returns the RADKit service handler, creating it if it doesn't exist.
+        Thread-safe with async lock.
+        
+        Returns:
+            Service: The RADKit service handler instance
+            
+        Raises:
+            Exception: If there's an error creating the connection
+        """
+        async with self._lock:
+            if self._service_handler is None:
+                try:
+                    logger.info(f"🔌 Creating new RADKit connection for {os.getenv('RADKIT_SERVICE_USERNAME')}-{os.getenv('RADKIT_SERVICE_CODE')}")
+                    # Run blocking operations in executor to avoid blocking event loop
+                    loop = asyncio.get_event_loop()
+                    
+                    def create_connection():
+                        client_context = Client.create()
+                        client_instance = client_context.__enter__()
+                        radkit_service_client = client_instance.certificate_login(os.getenv("RADKIT_SERVICE_USERNAME"))
+                        service_handler = radkit_service_client.service(os.getenv("RADKIT_SERVICE_CODE")).wait()
+                        return client_context, service_handler
+                    
+                    self._client_context, self._service_handler = await loop.run_in_executor(None, create_connection)
+                    logger.info("✅ RADKit connection established successfully")
+                except Exception as ex:
+                    logger.error(f"⚠️ Error creating RADKit connection: {str(ex)}")
+                    raise
+        
+        return self._service_handler
+    
+    async def close(self):
+        """
+        Closes the RADKit connection if it exists.
+        """
+        async with self._lock:
+            if self._client_context is not None:
+                try:
+                    loop = asyncio.get_event_loop()
+                    await loop.run_in_executor(
+                        None,
+                        self._client_context.__exit__, 
+                        None, None, None
+                    )
+                    logger.info("🔌 RADKit connection closed")
+                except Exception as ex:
+                    logger.error(f"⚠️ Error closing RADKit connection: {str(ex)}")
+                finally:
+                    self._client_context = None
+                    self._service_handler = None
+
+
+# Create a global service manager instance
+radkit_service_manager = RADKitServiceManager()
+
+
+async def _get_radkit_service_handler() -> Service:
+    """
+    Returns the RADKit service handler.
+    
+    Returns:
+        Service: The RADKit service handler instance
+        
+    Raises:
+        Exception: If there's an error getting the connection
     """
     try:
-        with Client.create() as client:
-            radkit_service_client = client.certificate_login(os.getenv("RADKIT_SERVICE_USERNAME"))
-            radkit_service_handler = radkit_service_client.service(os.getenv("RADKIT_SERVICE_CODE")).wait()
-            logger.info(f"🔌 Yielding a RADKit connection for {os.getenv('RADKIT_SERVICE_USERNAME')}-{os.getenv('RADKIT_SERVICE_CODE')}")
-            yield radkit_service_handler
+        return await radkit_service_manager.get_service_handler()
     except Exception as ex:
-        error_dict = {
-            "error": f"⚠️ Error: {str(ex)}"
-        }
-        return json.dumps(error_dict)
+        error_msg = f"⚠️ Error: {str(ex)}"
+        logger.error(error_msg)
+        raise Exception(error_msg)
 
 
 @mcp.tool()
-def get_device_inventory_names() -> str:
+async def get_device_inventory_names() -> str:
     """Returns a string with the names of the devices onboarded in the Cisco RADKit service's inventory.
     Use this first when the user asks about "devices", "network", or "all devices".
 
     Returns:
         str: List of devices onboarded in the Cisco RADKit service's inventory [ex. {"p0-2e", ""p1-2e"}]
     """
-    radkit_service_handler_gen = _get_radkit_service_handler()
-    radkit_service_handler = next(radkit_service_handler_gen)
-    return str({ device.name for device in radkit_service_handler.inventory.values() })
+    radkit_service_handler = await _get_radkit_service_handler()
+    loop = asyncio.get_event_loop()
+    inventory_values = await loop.run_in_executor(
+        None, 
+        lambda: radkit_service_handler.inventory.values()
+    )
+    return str({ device.name for device in inventory_values })
 
 
 @mcp.tool()
-def get_device_attributes(target_device:str) -> str:
+async def get_device_attributes(target_device:str) -> str:
     """Returns a JSON string with the attributes of the specified target device.
     Always try this first when the user asks about a specific device.
+    
+    This tool is safe to call in parallel for multiple devices. When querying multiple devices,
+    you should call this tool concurrently for all devices to improve performance.
     
     Inputs:
         target_device: (str) Target device to get the attributes from.
@@ -110,16 +187,22 @@ def get_device_attributes(target_device:str) -> str:
     """
     inventory_dict = {}
     inventory_dict["name"] = target_device
-    radkit_service_handler_gen = _get_radkit_service_handler()
-    radkit_service_handler = next(radkit_service_handler_gen)
-    device_attributes = radkit_service_handler.inventory[target_device].attributes.internal
-    for key in radkit_service_handler.inventory[target_device].attributes.internal.keys():
+    radkit_service_handler = await _get_radkit_service_handler()
+    
+    loop = asyncio.get_event_loop()
+    device_attributes = await loop.run_in_executor(
+        None,
+        lambda: radkit_service_handler.inventory[target_device].attributes.internal
+    )
+    
+    for key in device_attributes.keys():
         inventory_dict[key] = device_attributes[key]
+    
     return json.dumps(inventory_dict)
 
 
 @mcp.tool()
-def exec_cli_command_in_device(target_device:str, cli_command:str) -> str:
+async def exec_cli_command_in_device(target_device:str, cli_command:str) -> str:
     """Executes a CLI command in the target device, and returns the raw result as text.
     Choose the CLI command intelligently based on the device type (e.g., for Cisco IOS, use "show version" or "show interfaces" accordingly).
     You can get the device type / platform using the tool get_device_inventory_names().
@@ -151,9 +234,15 @@ def exec_cli_command_in_device(target_device:str, cli_command:str) -> str:
     Raises:
         Exception: Catches any potential errors during the execution of the desired CLI command in the target device.
     """
-    radkit_service_handler_gen = _get_radkit_service_handler()
-    radkit_service_handler = next(radkit_service_handler_gen)
-    return radkit_service_handler.inventory[target_device].exec(cli_command).wait().result.data
+    radkit_service_handler = await _get_radkit_service_handler()
+    
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(
+        None,
+        lambda: radkit_service_handler.inventory[target_device].exec(cli_command).wait().result.data
+    )
+    
+    return result
 
 
 if __name__ == "__main__":
