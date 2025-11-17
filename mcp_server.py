@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import sys
 import json
+import logging
 from fastmcp import FastMCP
 from dotenv import load_dotenv
 from radkit_client.sync import Client, Service
@@ -12,6 +12,21 @@ from radkit_client.sync import Client, Service
 
 load_dotenv()
 mcp = FastMCP(name="RADKitMCP")
+
+# Configure logging to file instead of stderr when using stdio
+transport = os.getenv("MCP_TRANSPORT", "stdio").lower()
+if transport == "stdio":
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+else:
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+logger = logging.getLogger(__name__)
 
 
 def _get_radkit_service_handler() -> Service:
@@ -24,7 +39,7 @@ def _get_radkit_service_handler() -> Service:
         with Client.create() as client:
             radkit_service_client = client.certificate_login(os.getenv("RADKIT_SERVICE_USERNAME"))
             radkit_service_handler = radkit_service_client.service(os.getenv("RADKIT_SERVICE_CODE")).wait()
-            print(f"🔌 Yielding a RADKit connection for {os.getenv('RADKIT_SERVICE_USERNAME')}-{os.getenv('RADKIT_SERVICE_CODE')}", file=sys.stderr)
+            logger.info(f"🔌 Yielding a RADKit connection for {os.getenv('RADKIT_SERVICE_USERNAME')}-{os.getenv('RADKIT_SERVICE_CODE')}")
             yield radkit_service_handler
     except Exception as ex:
         error_dict = {
@@ -142,5 +157,14 @@ def exec_cli_command_in_device(target_device:str, cli_command:str) -> str:
 
 
 if __name__ == "__main__":
-    print(f'✅ RADKit MCP Server running! (User {os.getenv("RADKIT_SERVICE_USERNAME")} for service {os.getenv("RADKIT_SERVICE_CODE")})', file=sys.stderr)
-    mcp.run(transport="stdio")
+    logger.info(f'✅ RADKit MCP Server running! (User {os.getenv("RADKIT_SERVICE_USERNAME")} for service {os.getenv("RADKIT_SERVICE_CODE")})')
+    
+    if transport == "https":
+        host = os.getenv("MCP_HOST", "0.0.0.0")
+        port = int(os.getenv("MCP_PORT", "8000"))
+        
+        logger.info(f"Starting MCP server with HTTPS transport on {host}:{port}")
+        mcp.run(transport="sse", host=host, port=port)
+    else:
+        logger.info("Starting MCP server with stdio transport")
+        mcp.run(transport="stdio")

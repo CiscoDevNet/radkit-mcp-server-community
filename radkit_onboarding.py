@@ -46,6 +46,7 @@ def generate_env():
 
     username = questionary.text("Enter Cisco RADKit username:").ask()
     service_code = questionary.text("Enter Cisco RADKit service code:").ask()
+    
     password = questionary.password("Enter non-interactive authentication password:").ask()
 
     if not all([username, service_code, password]):
@@ -53,12 +54,40 @@ def generate_env():
         sys.exit(1)
 
     encoded_pw = base64.b64encode(password.encode("utf-8")).decode("utf-8")
+    
+    transport = questionary.select(
+        "Select MCP transport mode:",
+        choices=["stdio", "https"],
+        default="stdio"
+    ).ask()
 
     env_content = (
         f"RADKIT_CLIENT_PRIVATE_KEY_PASSWORD_BASE64={encoded_pw}\n"
         f"RADKIT_SERVICE_USERNAME={username}\n"
         f"RADKIT_SERVICE_CODE={service_code}\n"
+        f"MCP_TRANSPORT={transport}\n"
     )
+    
+    # Only ask for host and port if HTTPS is selected
+    if transport == "https":
+        mcp_host = questionary.text(
+            "Enter MCP host:",
+            default="0.0.0.0"
+        ).ask()
+        
+        mcp_port = questionary.text(
+            "Enter MCP port:",
+            default="8000"
+        ).ask()
+        
+        if not all([mcp_host, mcp_port]):
+            console.print("[red]Host and port are required for HTTPS transport.[/red]")
+            sys.exit(1)
+        
+        env_content += (
+            f"MCP_HOST={mcp_host}\n"
+            f"MCP_PORT={mcp_port}\n"
+        )
 
     Path(".env").write_text(env_content)
     console.print(Panel.fit("[green]✅ .env file generated successfully![/green]\nSaved as [bold].env[/bold]"))
