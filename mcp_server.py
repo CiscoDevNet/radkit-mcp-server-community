@@ -11,7 +11,6 @@ from radkit_client.sync import Client, Service
 load_dotenv()
 mcp = FastMCP(name="RADKitMCP")
 
-# Configure logging to file instead of stderr when using stdio
 transport = os.getenv("MCP_TRANSPORT", "stdio").lower()
 if transport == "stdio":
     logging.basicConfig(
@@ -202,9 +201,10 @@ async def get_device_attributes(target_device:str) -> str:
 
 
 @mcp.tool()
-async def exec_cli_command_in_device(target_device:str, cli_command:str) -> str:
-    """Executes a CLI command in the target device, and returns the raw result as text.
-    Choose the CLI command intelligently based on the device type (e.g., for Cisco IOS, use "show version" or "show interfaces" accordingly).
+async def exec_cli_commands_in_device(target_device:str, cli_commands:list[str]) -> str:
+    """Executes a CLI command or commands in the target device, and returns the raw result as text.
+    Choose the CLI command or commands intelligently based on the device type (e.g., for Cisco IOS, use "show version" or "show interfaces" accordingly).
+    If it is more than a single command, make sure that these commands can be executed sequentially safely.
     You can get the device type / platform using the tool get_device_inventory_names().
     - Use this only if:
         * The requested information is not available in get_device_attributes(), OR
@@ -212,7 +212,7 @@ async def exec_cli_command_in_device(target_device:str, cli_command:str) -> str:
 
     Args:
         target_device (str): Target device to execute a CLI command at.
-        cli_command (str): CLI command to execute in the target device. It can be any read/write command.
+        cli_commands ([str]): CLI command or commands to execute in the target device. It can be any read/write command or commands.
 
     Returns:
         str: Raw output of the CLI command's execution
@@ -237,12 +237,22 @@ async def exec_cli_command_in_device(target_device:str, cli_command:str) -> str:
     radkit_service_handler = await _get_radkit_service_handler()
     
     loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(
+    exec_result = await loop.run_in_executor(
         None,
-        lambda: radkit_service_handler.inventory[target_device].exec(cli_command).wait().result.data
+        lambda: radkit_service_handler.inventory[target_device].exec(cli_commands).wait().result
     )
-    
-    return result
+
+    # For multiple commands, result is a dict-like object with command as key
+    result = exec_result.result
+
+    # Concatenate all command outputs
+    if hasattr(result, 'data'):
+        output = result.data
+    else:
+        # result is dict-like: {command: response_object}
+        output = "\n".join([resp.data for resp in result.values()])
+
+    return output
 
 
 if __name__ == "__main__":

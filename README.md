@@ -45,7 +45,7 @@ All required libraries are mentioned in the file `requirements.txt`, including t
 |------------|--------------|---------|----------|-----------|
 | **`get_device_inventory_names()`** | Returns a string containing the names of devices onboarded in the Cisco RADKit inventory. | *None* | `str`: List of onboarded devices (e.g. `{"p0-2e", "p1-2e"}`) | Use this first when the user asks about "devices", "network", or "all devices". |
 | **`get_device_attributes(target_device: str)`** | Returns detailed information about a specific device in JSON format. | `target_device (str)`: Target device name. | `str`: JSON with attributes including name, host, type, configs, SNMP/NETCONF status, capabilities, etc. | Use this when the user asks about a specific device. |
-| **`exec_cli_command_in_device(target_device: str, cli_command: str)`** | Executes a CLI command on a target device and returns the raw text result. | `target_device (str)`: Device name.<br>`cli_command (str)`: CLI command to execute. | `str`: Raw output of the executed command. | Use this only if info is unavailable in `get_device_attributes()` or when explicitly asked to “run” or “execute” a command. |
+| **`exec_cli_commands_in_device(target_device: str, cli_command: str)`** | Executes a CLI command or commands on a target device and returns the raw text result. | `target_device (str)`: Device name.<br>`cli_commands ([str])`: CLI command or commands to execute. | `str`: Raw output of the executed command. | Use this only if info is unavailable in `get_device_attributes()` or when explicitly asked to “run” or “execute” a command. |
 
 ## 🧩 Requirements
 
