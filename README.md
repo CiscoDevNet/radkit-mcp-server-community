@@ -22,9 +22,6 @@ A <strong>stand-alone MCP server</strong> built with <a href="https://github.com
 This MCP server acts as a lightweight middleware layer between the **Cisco RADKit** service and an **MCP-compatible client**.  
 It allows the LLM to inspect and interact with devices onboarded in the RADKit inventory, fetch device attributes, and even execute CLI commands — all through structured MCP tools.
 
-Currently, the implementation supports **stdio transport only** due to dependency incompatibilities between the `radkit` SDK and the `fastmcp` SDK.  
-This limitation will be lifted in future releases of the `radkit` SDK.
-
 ## ⚙️ Features
 
 - 🔌 **Plug-and-play MCP server** — works with any MCP-compatible client.  
@@ -32,6 +29,15 @@ This limitation will be lifted in future releases of the `radkit` SDK.
 - 🧠 **Device introspection** — fetch device attributes and capabilities.  
 - 🖥️ **Command execution** — run CLI commands on network devices.  
 - 📦 **Fully type-hinted tools** for clarity and extensibility.
+
+## 📚 Included libraries
+
+All required libraries are mentioned in the file `requirements.txt`, including their fixed versions.
+
+- `cisco_radkit_client`==1.9.0
+- `cisco_radkit_common`==1.9.0
+- `cisco_radkit_service`==1.9.0
+- `fastmcp`==2.13.1
 
 ## 🧰 Exposed MCP Tools
 
@@ -124,6 +130,22 @@ Provide the information requested. The password is the one just setup in the fir
 ? Enter Cisco RADKit username: ponchotitlan@cisco.com
 ? Enter Cisco RADKit service code: aaaa-bbbb-cccc
 ? Enter non-interactive authentication password: ***********
+```
+
+This MCP server supports both `stdio` and `https` transport methods. When prompted, choose the one that you would like to use:
+
+```bash
+? Select MCP transport mode: (Use arrow keys)
+ » stdio
+   https
+```
+
+Default choice is `stdio`. Otherwise, if `https` is selected, you will be prompted for the following information:
+
+```bash
+? Select MCP transport mode: https
+? Enter MCP host: 0.0.0.0
+? Enter MCP port: 8000
 ╭──────────────────────────────────────╮
 │ ✅ .env file generated successfully! │
 │ Saved as .env                        │
