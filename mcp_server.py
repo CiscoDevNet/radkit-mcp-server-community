@@ -233,6 +233,7 @@ async def exec_cli_commands_in_device(target_device:str, cli_commands:list[str])
         
     Raises:
         Exception: Catches any potential errors during the execution of the desired CLI command in the target device.
+        If the exception reads "Access denied", it means that RBAC is enabled in the RADKit server, and the user with which this MCP server was onboarded is not allowed into this specific device, must likely because it is missing the appropiate RBAC tag, and that it needs to be granted permissions in the RADKit service.
     """
     radkit_service_handler = await _get_radkit_service_handler()
     
