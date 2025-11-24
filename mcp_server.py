@@ -111,7 +111,7 @@ async def _get_radkit_service_handler() -> Service:
 
 
 @mcp.tool()
-async def get_device_inventory_names() -> str:
+async def get_device_inventory_names(toolCallId: str = None) -> str:
     """Returns a string with the names of the devices onboarded in the Cisco RADKit service's inventory.
     Use this first when the user asks about "devices", "network", or "all devices".
 
@@ -128,7 +128,7 @@ async def get_device_inventory_names() -> str:
 
 
 @mcp.tool()
-async def get_device_attributes(target_device:str) -> str:
+async def get_device_attributes(target_device:str, toolCallId: str = None) -> str:
     """Returns a JSON string with the attributes of the specified target device.
     Always try this first when the user asks about a specific device.
     
@@ -194,7 +194,7 @@ async def get_device_attributes(target_device:str) -> str:
 
 
 @mcp.tool()
-async def exec_cli_commands_in_device(target_device:str, cli_commands:list[str]) -> str:
+async def exec_cli_commands_in_device(target_device:str, cli_commands:list[str], toolCallId: str = None) -> str:
     """Executes a CLI command or commands in the target device, and returns the raw result as text.
     Choose the CLI command or commands intelligently based on the device type (e.g., for Cisco IOS, use "show version" or "show interfaces" accordingly).
     If it is more than a single command, make sure that these commands can be executed sequentially safely.
