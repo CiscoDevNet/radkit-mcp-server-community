@@ -4,10 +4,19 @@
 </div>
 
 <div align="center">
-  <img src="https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&labelColor=555555&logoColor=white" alt="Python"/>
-  <img src="https://img.shields.io/badge/Cisco-1BA0D7?style=flat&logo=cisco&labelColor=555555&logoColor=white" alt="Cisco"/>
-  <a href="https://gofastmcp.com/getting-started/welcome"><img src="https://img.shields.io/badge/FastMCP-A259E6?style=flat&labelColor=555555&logo=rocket&logoColor=white"/></a>
-</div></h1>
+<img src="https://img.shields.io/badge/Cisco-RADKit-049fd9?style=flat-square&logo=cisco&logoColor=white" alt="Cisco RADKit">
+<img src="https://img.shields.io/badge/MCP-Protocol-000000?style=flat-square&logo=anthropic&logoColor=white" alt="MCP">
+<img src="https://img.shields.io/badge/FastMCP-Library-7B2CBF?style=flat-square&logo=python&logoColor=white" alt="FastMCP">
+<img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
+</div>
+<div align="center">
+<a href="https://deepwiki.com/CiscoDevNet/radkit-mcp-server-community"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+<a href="https://www.youtube.com/watch?v=lsj05owx2Q0">
+  <img src="https://img.shields.io/badge/Watch%20Hack%20The%20RADKit!%20Episode%20now-FF0000?style=flat-square&logo=youtube&logoColor=white" alt="Watch on YouTube">
+</a>
+</div>
+
+</h1>
 
 <div align="center">
 A <strong>stand-alone MCP server</strong> built with <a href="https://github.com/modelcontextprotocol/fastmcp"><strong>FastMCP</strong></a> that exposes key functionalities of the <a href="https://radkit.cisco.com/"><strong>Cisco RADKit</strong></a> SDK as MCP tools.  
