@@ -3,7 +3,7 @@ set -e
 
 echo "🔧 Setting up virtual environment for Cisco RADKit MCP Server and tools ..."
 
-# Create venv if it doesn’t exist
+# Create venv if it doesn't exist
 if [ ! -d ".venv" ]; then
   python3 -m venv .venv
 fi
@@ -11,9 +11,12 @@ fi
 # Activate
 source .venv/bin/activate
 
-# Upgrade pip and install deps
+# Upgrade pip
 pip install --upgrade pip
-pip install -r requirements.txt
+
+# Install dependencies from pyproject.toml
+echo "📦 Installing dependencies from pyproject.toml..."
+pip install -e ".[onboarding]"
 
 echo "✅ Setup complete!"
 clear

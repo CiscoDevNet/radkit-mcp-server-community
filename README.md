@@ -34,15 +34,17 @@ It allows the LLM to inspect and interact with devices onboarded in the RADKit i
 
 ## ⚙️ Features
 
-- 🔌 **Plug-and-play MCP server** — works with any MCP-compatible client.  
-- 🔍 **Inventory discovery** — list all onboarded network devices.  
-- 🧠 **Device introspection** — fetch device attributes and capabilities.  
-- 🖥️ **Command execution** — run CLI commands on network devices.  
+### Core Features
+- 🔌 **Plug-and-play MCP server** — works with any MCP-compatible client.
+- 🔍 **Inventory discovery** — list all onboarded network devices.
+- 🧠 **Device introspection** — fetch device attributes and capabilities.
+- 🖥️ **Command execution** — run CLI commands on network devices with timeout and truncation control.
 - 📦 **Fully type-hinted tools** for clarity and extensibility.
 
-## 📚 Included libraries
 
-All required libraries are mentioned in the file `requirements.txt`, including their fixed versions.
+## 📚 Dependencies
+
+All required dependencies are defined in `pyproject.toml` with pinned versions:
 
 - `cisco_radkit_client`==1.9.0
 - `cisco_radkit_common`==1.9.0
@@ -55,7 +57,9 @@ All required libraries are mentioned in the file `requirements.txt`, including t
 |------------|--------------|---------|----------|-----------|
 | **`get_device_inventory_names()`** | Returns a string containing the names of devices onboarded in the Cisco RADKit inventory. | *None* | `str`: List of onboarded devices (e.g. `{"p0-2e", "p1-2e"}`) | Use this first when the user asks about "devices", "network", or "all devices". |
 | **`get_device_attributes(target_device: str)`** | Returns detailed information about a specific device in JSON format. | `target_device (str)`: Target device name. | `str`: JSON with attributes including name, host, type, configs, SNMP/NETCONF status, capabilities, etc. | Use this when the user asks about a specific device. |
-| **`exec_cli_commands_in_device(target_device: str, cli_command: str)`** | Executes a CLI command or commands on a target device and returns the raw text result. | `target_device (str)`: Device name.<br>`cli_commands ([str])`: CLI command or commands to execute. | `str`: Raw output of the executed command. | Use this only if info is unavailable in `get_device_attributes()` or when explicitly asked to “run” or “execute” a command. |
+| **`exec_cli_commands_in_device(...)`** | Executes a CLI command or commands on a target device. Contains additional timeout, max_lines, and service_serial parameters. | `target_device (str)`: Device name.<br>`cli_commands (str\|list[str])`: Commands.<br>`timeout (int)`: Timeout in seconds (optional).<br>`max_lines (int)`: Output line limit (optional).<br>`service_serial (str)`: Override service (optional). | `str`: Raw output of executed command(s) | Use this only if info is unavailable in `get_device_attributes()` or when explicitly asked to "run" or "execute" a command. |
+| **`snmp_get(...)`** | Performs SNMP GET operations on network devices. | `device_name (str)`: Device name.<br>`oid (str\|list[str])`: Single OID or list of OIDs.<br>`service_serial (str)`: Optional service override.<br>`timeout (float)`: SNMP timeout (default: 10.0s) | `list[dict]`: SNMP results with device_name, oid, value, and type | Query device information via SNMP without executing CLI commands. Useful for polling metrics and retrieving MIB values. |
+| **`exec_command(...)`** | Command execution with structured output format. | `device_name (str)`: Device name.<br>`command (str\|list[str])`: Commands.<br>`service_serial (str)`: Optional service override.<br>`timeout (int)`: Timeout (default: 0).<br>`max_lines (int)`: Line limit (default: 800). | `dict\|list[dict]`: Structured response with status, truncation info | Returns structured dict/list format. `exec_cli_commands_in_device()` returns raw string output. |
 
 ## 🧩 Requirements
 
@@ -164,6 +168,226 @@ Default choice is `stdio`. Otherwise, if `https` is selected, you will be prompt
 
 The file **radkit-mcp-server/.env** is generated with environment variables that the MCP Server needs.</br></br>
 ✅ **Your MCP server is ready for use!**
+
+## 🚀 Running the Server
+
+After completing the setup, you can run the MCP server using several methods:
+
+### Method 1: Direct Python Execution
+```bash
+python mcp_server.py
+```
+
+### Method 2: FastMCP Development Mode
+Development mode with auto-reload on file changes:
+```bash
+fastmcp dev src/radkit_mcp/server.py
+```
+
+The `dev` command automatically restarts the server when you modify code files, making it ideal for active development.
+
+### Method 3: FastMCP Run Command
+Run the server with full control over transport and configuration:
+
+**STDIO transport** (for local clients like Claude Desktop):
+```bash
+fastmcp run src/radkit_mcp/server.py
+```
+
+**SSE transport** (for network access):
+```bash
+fastmcp run src/radkit_mcp/server.py --transport sse --port 8000
+```
+
+**HTTPS transport** (for secure network access):
+```bash
+fastmcp run src/radkit_mcp/server.py --transport https --port 8000
+```
+
+### Method 4: Python Module Execution
+```bash
+python -m radkit_mcp.server
+```
+
+### Transport Modes
+
+- **stdio**: Standard input/output - for local client integration (Claude Desktop, etc.)
+- **sse**: Server-Sent Events over HTTP - for network access and multiple clients
+- **https**: Secure HTTP - for deployments requiring TLS encryption
+
+## 🔐 Authentication Options
+
+The server supports dual-mode authentication for flexibility across different deployment scenarios.
+
+### Option 1: Local Certificate Files (Recommended for Development)
+
+Uses `radkit_onboarding.py` to set up authentication - works perfectly for local development and testing! The server auto-detects and uses certificates from your `~/.radkit/identities/` directory.
+
+This method requires:
+1. Running the setup script (`setup.sh` or `setup.bat`)
+2. Completing the onboarding wizard
+3. Certificates stored in `~/.radkit/identities/`
+
+The server automatically finds and uses these certificates - no additional configuration needed!
+
+### Option 2: Environment Variables (Recommended for Containers)
+
+For Kubernetes, Docker, or cloud deployments, you can use environment variables instead of local certificate files. This makes the server container-ready and production-friendly.
+
+**Generate .env file from your local certificates:**
+```bash
+# Run the build script
+python scripts/build_env.py
+```
+
+This script will:
+1. Read your RADKit certificates from `~/.radkit/identities/`
+2. Base64-encode them
+3. Create a `.env` file with all required variables
+
+**Required environment variables:**
+```bash
+RADKIT_IDENTITY=user@cisco.com
+RADKIT_DEFAULT_SERVICE_SERIAL=service-serial
+RADKIT_CERT_B64=<base64-encoded-cert>
+RADKIT_KEY_B64=<base64-encoded-key>
+RADKIT_CA_B64=<base64-encoded-ca-chain>
+RADKIT_KEY_PASSWORD_B64=<base64-encoded-password>
+```
+
+**Authentication Priority:**
+The server automatically detects the authentication method in this order:
+1. Environment variables (if `RADKIT_CERT_B64` is set)
+2. Local certificate directory (`~/.radkit/identities/`)
+3. Certificate login with username
+
+## 🎯 SNMP Operations
+
+Query network devices using SNMP GET operations without executing CLI commands:
+
+### Query System Description
+```python
+# Using Claude or any MCP client
+snmp_get(device_name="router1", oid="1.3.6.1.2.1.1.1.0")
+```
+
+### Query Multiple OIDs
+```python
+snmp_get(device_name="router1", oid=[
+    "1.3.6.1.2.1.1.1.0",  # sysDescr
+    "1.3.6.1.2.1.1.2.0",  # sysObjectID
+    "1.3.6.1.2.1.1.3.0"   # sysUpTime
+])
+```
+
+### Common SNMP OIDs
+| OID | Description |
+|-----|-------------|
+| `1.3.6.1.2.1.1.1.0` | System Description |
+| `1.3.6.1.2.1.1.3.0` | System Uptime |
+| `1.3.6.1.2.1.1.5.0` | System Name |
+| `1.3.6.1.2.1.2.2.1.2` | Interface Description |
+| `1.3.6.1.2.1.2.2.1.8` | Interface Operational Status |
+
+## 🧪 Testing
+
+Comprehensive test suite with 95%+ coverage!
+
+### Run All Tests
+```bash
+.venv/bin/pytest tests/ -v
+```
+
+### Run Specific Test Suite
+```bash
+# Integration tests (RADKit API)
+.venv/bin/pytest tests/test_integration.py -v
+
+# MCP protocol tests
+.venv/bin/pytest tests/test_mcp_client.py -v
+```
+
+### Test Coverage Report
+```bash
+.venv/bin/pytest tests/ --cov=src/radkit_mcp --cov-report=html
+```
+
+## 🐳 Container Deployment
+
+### Dockerfile Example
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy project files
+COPY . .
+
+# Install dependencies
+RUN pip install --no-cache-dir -e .
+
+# Run server
+CMD ["python", "-m", "radkit_mcp.server"]
+```
+
+### Docker Compose Example
+```yaml
+version: '3.8'
+services:
+  radkit-mcp:
+    build: .
+    environment:
+      - RADKIT_IDENTITY=user@cisco.com
+      - RADKIT_DEFAULT_SERVICE_SERIAL=service-serial
+      - RADKIT_CERT_B64=${RADKIT_CERT_B64}
+      - RADKIT_KEY_B64=${RADKIT_KEY_B64}
+      - RADKIT_CA_B64=${RADKIT_CA_B64}
+      - RADKIT_KEY_PASSWORD_B64=${RADKIT_KEY_PASSWORD_B64}
+      - MCP_TRANSPORT=sse
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+    ports:
+      - "8000:8000"
+```
+
+### Kubernetes Deployment
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: radkit-mcp-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: radkit-mcp
+  template:
+    metadata:
+      labels:
+        app: radkit-mcp
+    spec:
+      containers:
+      - name: radkit-mcp
+        image: your-registry/radkit-mcp:2.0
+        env:
+        - name: RADKIT_IDENTITY
+          value: "user@cisco.com"
+        - name: RADKIT_DEFAULT_SERVICE_SERIAL
+          value: "service-serial"
+        - name: RADKIT_CERT_B64
+          valueFrom:
+            secretKeyRef:
+              name: radkit-certs
+              key: certificate
+        - name: RADKIT_KEY_B64
+          valueFrom:
+            secretKeyRef:
+              name: radkit-certs
+              key: private-key
+        # ... other env vars from secret
+```
+
+For more details, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## ⚡️ Usage example: Claude Desktop
 
