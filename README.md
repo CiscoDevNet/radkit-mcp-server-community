@@ -46,9 +46,9 @@ It allows the LLM to inspect and interact with devices onboarded in the RADKit i
 
 All required dependencies are defined in `pyproject.toml` with pinned versions:
 
-- `cisco_radkit_client`==1.9.0
-- `cisco_radkit_common`==1.9.0
-- `cisco_radkit_service`==1.9.0
+- `cisco_radkit_client`==1.9.6
+- `cisco_radkit_common`==1.9.6
+- `cisco_radkit_service`==1.9.6
 - `fastmcp`==2.13.1
 
 ## 🧰 Exposed MCP Tools
@@ -63,8 +63,9 @@ All required dependencies are defined in `pyproject.toml` with pinned versions:
 
 ## 🧩 Requirements
 
-- Python 3.10+
+- Python 3.12+
 - Active Cisco RADKit service
+- uv Python package manager
 - At least one read-only/RW user onboarded in the Cisco RADKit service
 
 For more information about setting up a Cisco RADKit service, visit [this link](https://radkit.cisco.com/#Start).
@@ -316,15 +317,24 @@ Comprehensive test suite with 95%+ coverage!
 
 ### Dockerfile Example
 ```dockerfile
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
-# Copy project files
-COPY . .
+# Install dependencies from the default public index.
+RUN pip install --no-cache-dir \
+    fastmcp==2.13.1 \
+    python-dotenv>=1.0.0 \
+    pydantic-settings>=2.0.0
 
-# Install dependencies
-RUN pip install --no-cache-dir -e .
+# Install RADKit dependencies using RADKit index in addition to PyPI.
+RUN pip install --no-cache-dir --extra-index-url https://radkit.cisco.com/pip \
+    cisco-radkit-client==1.9.6 \
+    cisco-radkit-common==1.9.6 \
+    cisco-radkit-service==1.9.6
+
+# Copy application code.
+COPY src ./src
 
 # Run server
 CMD ["python", "-m", "radkit_mcp.server"]
