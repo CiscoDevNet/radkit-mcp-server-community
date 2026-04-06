@@ -13,6 +13,9 @@ Environment Variables (with aliases):
 - MCP_TRANSPORT
 - MCP_HOST
 - MCP_PORT
+- RADKIT_DIRECT_HOST
+- RADKIT_DIRECT_PORT
+- RADKIT_DIRECT_TOKEN
 """
 
 from typing import Optional
@@ -90,11 +93,30 @@ class RADKitSettings(BaseSettings):
         description="Alias for RADKIT_KEY_PASSWORD_B64"
     )
 
+    # Direct RPC Connection
+    direct_host: Optional[str] = Field(
+        default=None,
+        alias="RADKIT_DIRECT_HOST",
+        description="Hostname/IP of RADKit server for direct RPC connection"
+    )
+
+    direct_port: int = Field(
+        default=8181,
+        alias="RADKIT_DIRECT_PORT",
+        description="Port for direct RPC connection (default: 8181)"
+    )
+
+    direct_token: Optional[str] = Field(
+        default=None,
+        alias="RADKIT_DIRECT_TOKEN",
+        description="E2EE validation token from the RADKit Web UI"
+    )
+
     # MCP Server Configuration
     mcp_transport: str = Field(
         default="stdio",
         alias="MCP_TRANSPORT",
-        description="MCP transport mode (stdio, https, sse)"
+        description="MCP transport mode (stdio, sse, http)"
     )
 
     mcp_host: str = Field(
@@ -132,6 +154,11 @@ class RADKitSettings(BaseSettings):
             self.ca_b64,
             self.radkit_key_password
         ])
+
+    @property
+    def is_direct_rpc(self) -> bool:
+        """Check if direct RPC connection mode is configured."""
+        return bool(self.direct_host and self.direct_token)
 
 
 # Global settings instance

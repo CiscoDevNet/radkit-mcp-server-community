@@ -1,6 +1,6 @@
 [project]
 name = "radkit-mcp-server"
-version = "1.1.0"
+version = "1.2.0"
 description = "FastMCP server for Cisco RADKit - Network device management via MCP protocol"
 readme = "README.md"
 license = { text = "Apache-2.0" }

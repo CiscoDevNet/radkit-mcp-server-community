@@ -70,9 +70,13 @@ def _get_auth_mode() -> str:
     Determine which authentication mode to use.
 
     Returns:
-        "env_vars", "local_certs", or "username_login"
+        "direct_rpc", "env_vars", "local_certs", or "username_login"
     """
     settings = get_settings()
+
+    # Priority 0: Direct RPC connection (bypasses cloud entirely)
+    if settings.is_direct_rpc:
+        return "direct_rpc"
 
     # Priority 1: Environment variables (container-friendly)
     if _has_base64_env_vars():
@@ -126,12 +130,31 @@ def initialize_radkit_client(client: Client) -> None:
     if not identity:
         raise ValueError("Environment variable RADKIT_IDENTITY (or RADKIT_SERVICE_USERNAME) is required")
 
-    if not default_service_serial:
+    if not default_service_serial and auth_mode != "direct_rpc":
         raise ValueError("Environment variable RADKIT_DEFAULT_SERVICE_SERIAL (or RADKIT_SERVICE_CODE) is required")
 
     # Authenticate based on mode
     try:
-        if auth_mode == "env_vars":
+        if auth_mode == "direct_rpc":
+            # Mode 0: Direct RPC connection (no cloud, no certificates)
+            from radkit_common.rpc.client_transports.verify import RPCVerificationError
+            print(f"Connecting directly to RADKit server at {settings.direct_host}:{settings.direct_port}...")
+            service = client.service_direct(
+                username=identity,
+                host=settings.direct_host,
+                port=settings.direct_port,
+                password=settings.direct_token
+            )
+            try:
+                service.wait()
+            except RPCVerificationError as e:
+                raise Exception(f"Direct RPC verification failed: {e}") from e
+            _radkit_client = client
+            _radkit_services[settings.direct_host] = service
+            print(f"✓ Connected directly to RADKit server at {settings.direct_host}:{settings.direct_port}")
+            return
+
+        elif auth_mode == "env_vars":
             # Mode 1: Base64 environment variables (container deployment)
             print("Loading certificate credentials from environment variables...")
             _cert_credentials = load_certificates_from_env()
@@ -228,6 +251,15 @@ def get_service(service_serial: Optional[str] = None) -> Any:
 
     # Get settings
     settings = get_settings()
+
+    # Direct RPC mode: return the cached direct service
+    if settings.is_direct_rpc and not service_serial:
+        if settings.direct_host in _radkit_services:
+            return _radkit_services[settings.direct_host]
+        raise RuntimeError(
+            f"Direct RPC service for {settings.direct_host} not found in cache. "
+            "Was initialize_radkit_client() called?"
+        )
 
     # Determine which service serial to use
     serial = service_serial or settings.radkit_service_serial

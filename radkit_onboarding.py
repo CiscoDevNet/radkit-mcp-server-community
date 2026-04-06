@@ -57,7 +57,7 @@ def generate_env():
     
     transport = questionary.select(
         "Select MCP transport mode:",
-        choices=["stdio", "https"],
+        choices=["stdio", "http", "sse"],
         default="stdio"
     ).ask()
 
@@ -68,8 +68,8 @@ def generate_env():
         f"MCP_TRANSPORT={transport}\n"
     )
     
-    # Only ask for host and port if HTTPS is selected
-    if transport == "https":
+    # Only ask for host and port if http is selected
+    if transport in ["http", "sse"]:
         mcp_host = questionary.text(
             "Enter MCP host:",
             default="0.0.0.0"
@@ -81,7 +81,7 @@ def generate_env():
         ).ask()
         
         if not all([mcp_host, mcp_port]):
-            console.print("[red]Host and port are required for HTTPS transport.[/red]")
+            console.print("[red]Host and port are required for http transport.[/red]")
             sys.exit(1)
         
         env_content += (
