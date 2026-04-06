@@ -142,12 +142,12 @@ def main():
 
     logger.info(f'✅ RADKit MCP Server starting with transport: {transport.upper()}')
 
-    if transport == "https" or transport == "sse":
+    if transport in ("sse", "http"):
         host = settings.mcp_host
         port = settings.mcp_port
 
         logger.info(f"Starting MCP server with {transport.upper()} transport on {host}:{port}")
-        mcp.run(transport="sse", host=host, port=port)
+        mcp.run(transport=transport, host=host, port=port)
     else:
         logger.info("Starting MCP server with STDIO transport")
         mcp.run(transport="stdio")

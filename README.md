@@ -8,7 +8,7 @@
 <img src="https://img.shields.io/badge/Cisco-RADKit-049fd9?style=flat-square&logo=cisco&logoColor=white" alt="Cisco RADKit">
 <img src="https://img.shields.io/badge/MCP-Protocol-000000?style=flat-square&logo=anthropic&logoColor=white" alt="MCP">
 <img src="https://img.shields.io/badge/FastMCP-Library-7B2CBF?style=flat-square&logo=python&logoColor=white" alt="FastMCP">
-<img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
+<img src="https://img.shields.io/badge/Python-3.12+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
 </div>
 <div align="center">
 <a href="https://deepwiki.com/CiscoDevNet/radkit-mcp-server-community"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
@@ -20,233 +20,169 @@
 </h1>
 
 <div align="center">
-A <strong>stand-alone MCP server</strong> built with <a href="https://github.com/modelcontextprotocol/fastmcp"><strong>FastMCP</strong></a> that exposes key functionalities of the <a href="https://radkit.cisco.com/"><strong>Cisco RADKit</strong></a> SDK as MCP tools.  
-</br>It is designed to be connected to any <strong>MCP client</strong> and <strong>LLM</strong> of your choice, enabling intelligent interaction with network devices through Cisco RADKit.
+A <strong>stand-alone MCP server</strong> built with <a href="https://github.com/modelcontextprotocol/fastmcp"><strong>FastMCP</strong></a> that exposes key functionalities of the <a href="https://radkit.cisco.com/"><strong>Cisco RADKit</strong></a> SDK as MCP tools. It is designed to be connected to any <strong>MCP client</strong> and <strong>LLM</strong> of your choice, enabling intelligent interaction with network devices through Cisco RADKit.
 <br /><br />
 </div>
 
 > **Disclaimer**: This MCP Server is not an official Cisco product. It was developed for experimentation and learning purposes.
 
+---
+
+## Table of Contents
+
+1. [Overview](#-overview)
+2. [Features](#️-features)
+3. [Requirements](#-requirements)
+4. [Installation](#️-installation)
+5. [Authentication](#-authentication)
+   - [Option 1: Local Certificates (Development)](#option-1-local-certificates-recommended-for-development)
+   - [Option 2: Environment Variables (Containers)](#option-2-environment-variables-recommended-for-containers)
+   - [Option 3: Direct RPC](#option-3-direct-rpc)
+6. [Running the Server](#-running-the-server)
+7. [Available MCP Tools](#-available-mcp-tools)
+8. [Container Deployment](#-container-deployment)
+9. [Testing](#-testing)
+10. [Usage Example: Claude Desktop](#️-usage-example-claude-desktop)
+
+---
+
 ## 🚀 Overview
 
-This MCP server acts as a lightweight middleware layer between the **Cisco RADKit** service and an **MCP-compatible client**.  
-It allows the LLM to inspect and interact with devices onboarded in the RADKit inventory, fetch device attributes, and even execute CLI commands — all through structured MCP tools.
+This MCP server acts as a lightweight middleware layer between the **Cisco RADKit** service and an **MCP-compatible client**. It allows an LLM to inspect and interact with devices onboarded in the RADKit inventory, fetch device attributes, and execute CLI commands — all through structured MCP tools.
 
 ## ⚙️ Features
 
-### Core Features
-- 🔌 **Plug-and-play MCP server** — works with any MCP-compatible client.
+- 🔌 **Plug-and-play** — works with any MCP-compatible client.
 - 🔍 **Inventory discovery** — list all onboarded network devices.
 - 🧠 **Device introspection** — fetch device attributes and capabilities.
 - 🖥️ **Command execution** — run CLI commands on network devices with timeout and truncation control.
 - 📦 **Fully type-hinted tools** for clarity and extensibility.
 
-
-## 📚 Dependencies
-
-All required dependencies are defined in `pyproject.toml` with pinned versions:
-
-- `cisco_radkit_client`==1.9.6
-- `cisco_radkit_common`==1.9.6
-- `cisco_radkit_service`==1.9.6
-- `fastmcp`==2.13.1
-
-## 🧰 Exposed MCP Tools
-
-| Tool Name | Description | Inputs | Returns | Use Case |
-|------------|--------------|---------|----------|-----------|
-| **`get_device_inventory_names()`** | Returns a string containing the names of devices onboarded in the Cisco RADKit inventory. | *None* | `str`: List of onboarded devices (e.g. `{"p0-2e", "p1-2e"}`) | Use this first when the user asks about "devices", "network", or "all devices". |
-| **`get_device_attributes(target_device: str)`** | Returns detailed information about a specific device in JSON format. | `target_device (str)`: Target device name. | `str`: JSON with attributes including name, host, type, configs, SNMP/NETCONF status, capabilities, etc. | Use this when the user asks about a specific device. |
-| **`exec_cli_commands_in_device(...)`** | Executes a CLI command or commands on a target device. Contains additional timeout, max_lines, and service_serial parameters. | `target_device (str)`: Device name.<br>`cli_commands (str\|list[str])`: Commands.<br>`timeout (int)`: Timeout in seconds (optional).<br>`max_lines (int)`: Output line limit (optional).<br>`service_serial (str)`: Override service (optional). | `str`: Raw output of executed command(s) | Use this only if info is unavailable in `get_device_attributes()` or when explicitly asked to "run" or "execute" a command. |
-| **`snmp_get(...)`** | Performs SNMP GET operations on network devices. | `device_name (str)`: Device name.<br>`oid (str\|list[str])`: Single OID or list of OIDs.<br>`service_serial (str)`: Optional service override.<br>`timeout (float)`: SNMP timeout (default: 10.0s) | `list[dict]`: SNMP results with device_name, oid, value, and type | Query device information via SNMP without executing CLI commands. Useful for polling metrics and retrieving MIB values. |
-| **`exec_command(...)`** | Command execution with structured output format. | `device_name (str)`: Device name.<br>`command (str\|list[str])`: Commands.<br>`service_serial (str)`: Optional service override.<br>`timeout (int)`: Timeout (default: 0).<br>`max_lines (int)`: Line limit (default: 800). | `dict\|list[dict]`: Structured response with status, truncation info | Returns structured dict/list format. `exec_cli_commands_in_device()` returns raw string output. |
-
 ## 🧩 Requirements
 
 - Python 3.12+
-- Active Cisco RADKit service
-- uv Python package manager
-- At least one read-only/RW user onboarded in the Cisco RADKit service
+- Active Cisco RADKit service ([setup guide](https://radkit.cisco.com/#Start))
+- `uv` Python package manager
+- At least one read-only or read-write user onboarded in the RADKit service
 
-For more information about setting up a Cisco RADKit service, visit [this link](https://radkit.cisco.com/#Start).
+**Python dependencies** (pinned in `pyproject.toml`):
+
+| Package | Version |
+|---------|---------|
+| `cisco_radkit_client` | 1.9.6 |
+| `cisco_radkit_common` | 1.9.6 |
+| `cisco_radkit_service` | 1.9.6 |
+| `fastmcp` | 2.13.1 |
+
+
+## 🧰 Available MCP Tools
+
+| Tool | Description | Returns |
+|------|-------------|---------|
+| `get_device_inventory_names()` | Returns the names of all devices in the RADKit inventory. | `str` |
+| `get_device_attributes(target_device)` | Returns detailed JSON attributes for a specific device (name, host, type, SNMP/NETCONF status, capabilities, etc.). | `str` (JSON) |
+| `exec_cli_commands_in_device(target_device, cli_commands, timeout?, max_lines?, service_serial?)` | Executes one or more CLI commands on a device. Returns raw string output. | `str` |
+| `snmp_get(device_name, oid, service_serial?, timeout?)` | Performs SNMP GET for one or more OIDs on a device. | `list[dict]` |
+| `exec_command(device_name, command, service_serial?, timeout?, max_lines?)` | Executes commands and returns structured output (status, truncation info). | `dict\|list[dict]` |
+
+- Start with `get_device_inventory_names()` to discover available devices.
+- Use `get_device_attributes()` to inspect a device before running commands.
+- Use `exec_cli_commands_in_device()` for raw CLI output; use `exec_command()` when structured response metadata is needed.
+- Use `snmp_get()` to poll metrics or retrieve MIB values without CLI access.
+
+## 🚗 Available transport options ##
+
+| Mode | Description |
+|------|-------------|
+| `stdio` | Standard I/O — for local clients (Claude Desktop, etc.) |
+| `sse` | Server-Sent Events over HTTP — for multiple network clients |
+| `http` | HTTP — for http environments |
 
 ## 🛠️ Installation
 
-Clone the repository in your deployment environment.
+Clone the repository and create a local virtual environment:
+
 ```bash
 git clone https://github.com/ponchotitlan/radkit-mcp-server.git
 cd radkit-mcp-server
+uv sync --extra onboarding
 ```
 
-## ⚙️ Setup
+> For Docker, Docker Compose, or Kubernetes deployments, see [Container Deployment](#-container-deployment).
 
-Execute the included assistant script in a terminal based on your type of host OS:
+## 🔐 Authentication
 
-🐧🍎 Linux/MacOS:
-```bash
-chmod +x setup.sh
-```
-```bash
-bash setup.sh
-```
+The server supports three authentication methods, evaluated in this priority order:
 
-🪟 Windows:
-```bash
-setup.bat
-```
+1. **Direct RPC** — if `RADKIT_DIRECT_HOST` and `RADKIT_DIRECT_TOKEN` are set.
+2. **Environment variables** — if `RADKIT_CERT_B64` is set.
+3. **Local certificate files** — from `~/.radkit/identities/`.
 
-The assistant will first create a virtual environment folder **radkit-mcp-server/.venv/** with all the python libraries required. Afterwards, it will trigger the following assistant:
+---
+
+### Option 1: Local Certificates (Recommended for Development)
+
+Use the interactive onboarding script to generate certificates and a `.env` file:
 
 ```bash
-╭─────────────────────────────────────────╮
-│ 🚀 Cisco RADKit MCP Server Utility Tool │
-╰─────────────────────────────────────────╯
-? Choose an option: (Use arrow keys)
- » 1. 👾 Onboard user to non-interactive Cisco RADKit authentication
-   2. 📚 Generate .env file for Cisco RADKit MCP server
-   Exit
+uv run python radkit_onboarding.py
 ```
 
-### 👾 1. Non-interactive Cisco RADKit authentication setup
+**Step 1 — Generate certificates**
 
-The MCP server makes use of certificate login to avoid asking for Web UI authentication every time a tool is used. For that, the certificates need to be generated in the host. Select the first option and follow the instructions.
+Select option `1` and complete the browser-based authentication flow. You will be asked to set a passphrase for the private key.
 
-```bash
-╭─────────────────────────────────────────╮
-│ 🚀 Cisco RADKit MCP Server Utility Tool │
-╰─────────────────────────────────────────╯
+```
 ? Choose an option: 1. 👾 Onboard user to non-interactive Cisco RADKit authentication
 ? Enter Cisco RADKit username: ponchotitlan@cisco.com
-╭───────────────────────────────────────────────────────────────────╮
-│ Starting Cisco RADKit onboarding for user: ponchotitlan@cisco.com │
-╰───────────────────────────────────────────────────────────────────╯
 
-A browser window was opened to continue the authentication process. Please follow the instructions there.
+A browser window was opened to continue the authentication process.
 
 Authentication result received.
 New private key password: ***********
 Confirm: ***********
-The private key is a very sensitive piece of information. DO NOT SHARE UNDER ANY CIRCUMSTANCES, and use a very strong passphrase. Please consult the documentation for more details.
-<frozen radkit_client.async_.client>:891: UserWarning: The private key is a very sensitive piece of information. DO NOT SHARE UNDER ANY CIRCUMSTANCES, and use a very strong passphrase. Please consult the documentation for more details.
 ```
-**Take note of the password provided, as it will be needed for the 2nd option!**</br>
-Now, select the second option:
 
-### 📚 2. Generate .env file
+> **Important:** Save this passphrase — you will need it in Step 2.
 
-Provide the information requested. The password is the one just setup in the first option.
+**Step 2 — Generate .env file**
 
-```bash
+Select option `2` and provide the required details:
+
+```
 ? Choose an option: 2. 📚 Generate .env file for Cisco RADKit MCP server
-╭───────────────────────────────────────────────────────────────────────────────╮
-│ Warning: Make sure Cisco RADKit certificates for this username already exist. │
-│ If not, run the onboarding process first using option 1.                      │
-╰───────────────────────────────────────────────────────────────────────────────╯
 ? Enter Cisco RADKit username: ponchotitlan@cisco.com
 ? Enter Cisco RADKit service code: aaaa-bbbb-cccc
 ? Enter non-interactive authentication password: ***********
+? Select MCP transport mode: stdio
 ```
 
-This MCP server supports both `stdio` and `https` transport methods. When prompted, choose the one that you would like to use:
+If you select `http` or `sse`, you will also be prompted for host and port:
 
-```bash
-? Select MCP transport mode: (Use arrow keys)
- » stdio
-   https
 ```
-
-Default choice is `stdio`. Otherwise, if `https` is selected, you will be prompted for the following information:
-
-```bash
-? Select MCP transport mode: https
+? Select MCP transport mode: http
 ? Enter MCP host: 0.0.0.0
 ? Enter MCP port: 8000
-╭──────────────────────────────────────╮
-│ ✅ .env file generated successfully! │
-│ Saved as .env                        │
-╰──────────────────────────────────────╯
 ```
 
-The file **radkit-mcp-server/.env** is generated with environment variables that the MCP Server needs.</br></br>
-✅ **Your MCP server is ready for use!**
+The `.env` file is saved in the project root. The server auto-detects certificates from `~/.radkit/identities/` — no additional configuration needed.
 
-## 🚀 Running the Server
+✅ **Your MCP server is ready to run.**
 
-After completing the setup, you can run the MCP server using several methods:
-
-### Method 1: Direct Python Execution
-```bash
-python mcp_server.py
-```
-
-### Method 2: FastMCP Development Mode
-Development mode with auto-reload on file changes:
-```bash
-fastmcp dev src/radkit_mcp/server.py
-```
-
-The `dev` command automatically restarts the server when you modify code files, making it ideal for active development.
-
-### Method 3: FastMCP Run Command
-Run the server with full control over transport and configuration:
-
-**STDIO transport** (for local clients like Claude Desktop):
-```bash
-fastmcp run src/radkit_mcp/server.py
-```
-
-**SSE transport** (for network access):
-```bash
-fastmcp run src/radkit_mcp/server.py --transport sse --port 8000
-```
-
-**HTTPS transport** (for secure network access):
-```bash
-fastmcp run src/radkit_mcp/server.py --transport https --port 8000
-```
-
-### Method 4: Python Module Execution
-```bash
-python -m radkit_mcp.server
-```
-
-### Transport Modes
-
-- **stdio**: Standard input/output - for local client integration (Claude Desktop, etc.)
-- **sse**: Server-Sent Events over HTTP - for network access and multiple clients
-- **https**: Secure HTTP - for deployments requiring TLS encryption
-
-## 🔐 Authentication Options
-
-The server supports dual-mode authentication for flexibility across different deployment scenarios.
-
-### Option 1: Local Certificate Files (Recommended for Development)
-
-Uses `radkit_onboarding.py` to set up authentication - works perfectly for local development and testing! The server auto-detects and uses certificates from your `~/.radkit/identities/` directory.
-
-This method requires:
-1. Running the setup script (`setup.sh` or `setup.bat`)
-2. Completing the onboarding wizard
-3. Certificates stored in `~/.radkit/identities/`
-
-The server automatically finds and uses these certificates - no additional configuration needed!
+---
 
 ### Option 2: Environment Variables (Recommended for Containers)
 
-For Kubernetes, Docker, or cloud deployments, you can use environment variables instead of local certificate files. This makes the server container-ready and production-friendly.
+Use this method for Docker, Kubernetes, or any environment without local file access.
 
-**Generate .env file from your local certificates:**
+Generate the `.env` file from your existing local certificates:
+
 ```bash
-# Run the build script
 python scripts/build_env.py
 ```
 
-This script will:
-1. Read your RADKit certificates from `~/.radkit/identities/`
-2. Base64-encode them
-3. Create a `.env` file with all required variables
+This script reads your RADKit certificates from `~/.radkit/identities/`, Base64-encodes them, and writes a `.env` file with the following variables:
 
-**Required environment variables:**
 ```bash
 RADKIT_IDENTITY=user@cisco.com
 RADKIT_DEFAULT_SERVICE_SERIAL=service-serial
@@ -256,61 +192,64 @@ RADKIT_CA_B64=<base64-encoded-ca-chain>
 RADKIT_KEY_PASSWORD_B64=<base64-encoded-password>
 ```
 
-**Authentication Priority:**
-The server automatically detects the authentication method in this order:
-1. Environment variables (if `RADKIT_CERT_B64` is set)
-2. Local certificate directory (`~/.radkit/identities/`)
-3. Certificate login with username
+---
 
-## 🎯 SNMP Operations
+### Option 3: Direct RPC
 
-Query network devices using SNMP GET operations without executing CLI commands:
+Connect directly to a RADKit server over the local network without cloud-based authentication. Ideal for on-premises or air-gapped deployments.
 
-### Query System Description
-```python
-# Using Claude or any MCP client
-snmp_get(device_name="router1", oid="1.3.6.1.2.1.1.1.0")
-```
+**Step 1** — Log in to your RADKit Web UI and copy the E2EE validation token for your user account.
 
-### Query Multiple OIDs
-```python
-snmp_get(device_name="router1", oid=[
-    "1.3.6.1.2.1.1.1.0",  # sysDescr
-    "1.3.6.1.2.1.1.2.0",  # sysObjectID
-    "1.3.6.1.2.1.1.3.0"   # sysUpTime
-])
-```
+**Step 2** — Add the following to your `.env` file:
 
-### Common SNMP OIDs
-| OID | Description |
-|-----|-------------|
-| `1.3.6.1.2.1.1.1.0` | System Description |
-| `1.3.6.1.2.1.1.3.0` | System Uptime |
-| `1.3.6.1.2.1.1.5.0` | System Name |
-| `1.3.6.1.2.1.2.2.1.2` | Interface Description |
-| `1.3.6.1.2.1.2.2.1.8` | Interface Operational Status |
-
-## 🧪 Testing
-
-Comprehensive test suite with 95%+ coverage!
-
-### Run All Tests
 ```bash
-.venv/bin/pytest tests/ -v
+RADKIT_IDENTITY=user@example.com
+RADKIT_DIRECT_HOST=192.168.1.100        # IP or hostname of your RADKit server
+RADKIT_DIRECT_TOKEN=your-e2ee-token     # E2EE validation token from the Web UI
+# RADKIT_DIRECT_PORT=8181               # Optional, default is 8181
+
+MCP_TRANSPORT=sse   # or stdio / http
+MCP_HOST=0.0.0.0
+MCP_PORT=8000
 ```
 
-### Run Specific Test Suite
-```bash
-# Integration tests (RADKit API)
-.venv/bin/pytest tests/test_integration.py -v
+> `RADKIT_DEFAULT_SERVICE_SERIAL` is **not** required in Direct RPC mode.
 
-# MCP protocol tests
-.venv/bin/pytest tests/test_mcp_client.py -v
+**Step 3** — Start the server. On successful connection, you will see:
+
+```
+Using authentication mode: direct_rpc
+Connecting directly to RADKit server at 192.168.1.100:8181...
+✓ Connected directly to RADKit server at 192.168.1.100:8181
 ```
 
-### Test Coverage Report
+## 🚀 Running the Server
+
+### Method 1: Direct Python
 ```bash
-.venv/bin/pytest tests/ --cov=src/radkit_mcp --cov-report=html
+python mcp_server.py
+```
+
+### Method 2: FastMCP Dev Mode (auto-reload on file changes)
+```bash
+fastmcp dev src/radkit_mcp/server.py
+```
+
+### Method 3: FastMCP Run
+```bash
+# STDIO (for local clients like Claude Desktop)
+fastmcp run src/radkit_mcp/server.py
+
+# SSE (for network access)
+fastmcp run src/radkit_mcp/server.py --transport sse --port 8000
+
+# HTTPS (secure network access)
+fastmcp run src/radkit_mcp/server.py --transport https --port 8000
+```
+
+### Method 4: Python Module
+```bash
+python -m radkit_mcp.server
 ```
 
 ## 🐳 Container Deployment
@@ -342,7 +281,6 @@ CMD ["python", "-m", "radkit_mcp.server"]
 
 ### Docker Compose Example
 ```yaml
-version: '3.8'
 services:
   radkit-mcp:
     build: .
@@ -397,7 +335,110 @@ spec:
         # ... other env vars from secret
 ```
 
-For more details, see [DEPLOYMENT.md](DEPLOYMENT.md).
+## 🔌 Direct RPC Connection
+
+In addition to the standard cloud-based connection, this server supports connecting directly to a RADKit server over the network using **Direct RPC**. This is ideal for on-premises deployments or air-gapped environments where cloud connectivity is not available or desired.
+
+> **When to use Direct RPC:** Choose this method when your RADKit server is reachable over the local network and you want to avoid cloud-based certificate authentication entirely.
+
+Instead of going through the Cisco RADKit cloud, the server connects directly to the IP address or hostname of your RADKit server using an E2EE validation token that you obtain from the RADKit Web UI. No certificates are required.
+
+When `RADKIT_DIRECT_HOST` and `RADKIT_DIRECT_TOKEN` are both set, Direct RPC mode is activated automatically and takes priority over all other authentication methods.
+
+**Step 1: Get your E2EE validation token**
+
+Log in to your RADKit Web UI and copy the E2EE validation token for your user account. This token acts as the password for the Direct RPC connection.
+
+**Step 2: Set environment variables**
+
+Add the following variables to your `.env` file:
+
+```bash
+# Your RADKit username (email)
+RADKIT_IDENTITY=user@example.com
+
+# IP address or hostname of your RADKit server
+RADKIT_DIRECT_HOST=192.168.1.100
+
+# E2EE validation token from the RADKit Web UI
+RADKIT_DIRECT_TOKEN=your-e2ee-validation-token
+
+# Optional: port to connect to (default is 8181)
+# RADKIT_DIRECT_PORT=8181
+
+# Your MCP server details
+MCP_TRANSPORT=sse|stdio|http
+MCP_HOST=0.0.0.0
+MCP_PORT=8000
+```
+
+> **Note:** `RADKIT_DEFAULT_SERVICE_SERIAL` is **not** required when using Direct RPC mode.
+
+**Step 3: Run the server**
+
+Start the server normally using any of the supported methods:
+
+```bash
+python mcp_server.py
+```
+
+The server will log the following on startup when Direct RPC mode is active:
+
+```
+Using authentication mode: direct_rpc
+Connecting directly to RADKit server at 192.168.1.100:8181...
+✓ Connected directly to RADKit server at 192.168.1.100:8181
+```
+
+### Docker Compose
+
+To use Direct RPC in a Docker deployment, use the following directly in your `docker-compose.yml`:
+
+```yaml
+services:
+  radkit-mcp:
+    build: .
+    environment:
+      - RADKIT_IDENTITY=user@example.com
+      - RADKIT_DIRECT_HOST=192.168.1.100
+      - RADKIT_DIRECT_PORT=8181
+      - RADKIT_DIRECT_TOKEN=your-e2ee-validation-token
+      - MCP_TRANSPORT=sse
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+    ports:
+      - "8000:8000"
+      - "8081:8081"
+    networks:
+      - radkit-net
+
+networks:
+  radkit-net:
+    driver: bridge
+```
+
+## 🧪 Testing
+
+Comprehensive test suite with 95%+ coverage!
+
+### Run All Tests
+```bash
+.venv/bin/pytest tests/ -v
+```
+
+### Run Specific Test Suite
+```bash
+# Integration tests (RADKit API)
+.venv/bin/pytest tests/test_integration.py -v
+
+# MCP protocol tests
+.venv/bin/pytest tests/test_mcp_client.py -v
+```
+
+### Test Coverage Report
+```bash
+.venv/bin/pytest tests/ --cov=src/radkit_mcp --cov-report=html
+```
 
 ## ⚡️ Usage example: Claude Desktop
 
