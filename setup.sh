@@ -3,23 +3,17 @@ set -e
 
 echo "🔧 Setting up virtual environment for Cisco RADKit MCP Server and tools ..."
 
-# Create venv if it doesn't exist
-if [ ! -d ".venv" ]; then
-  python3 -m venv .venv
+if ! command -v uv >/dev/null 2>&1; then
+  echo "❌ uv is required but not installed. Please install uv from https://docs.astral.sh/uv/getting-started/installation/"
+  exit 1
 fi
 
-# Activate
-source .venv/bin/activate
-
-# Upgrade pip
-pip install --upgrade pip
-
-# Install dependencies from pyproject.toml
-echo "📦 Installing dependencies from pyproject.toml..."
-pip install -e ".[onboarding]"
+# Sync dependencies from pyproject.toml
+echo "📦 Syncing dependencies from pyproject.toml with uv..."
+uv sync --extra onboarding
 
 echo "✅ Setup complete!"
 clear
 
 # Running of the onboarding utility
-python radkit_onboarding.py
+uv run python radkit_onboarding.py
