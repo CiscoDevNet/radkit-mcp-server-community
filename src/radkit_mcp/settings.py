@@ -120,9 +120,9 @@ class RADKitSettings(BaseSettings):
     )
 
     mcp_host: str = Field(
-        default="0.0.0.0",
+        default="127.0.0.1",
         alias="MCP_HOST",
-        description="MCP server host"
+        description="MCP server host (default: 127.0.0.1 for security; only change if you understand the risks)"
     )
 
     mcp_port: int = Field(

@@ -146,6 +146,22 @@ def main():
         host = settings.mcp_host
         port = settings.mcp_port
 
+        # Security validation for network transports
+        is_localhost = host in ("127.0.0.1", "localhost", "::1")
+        
+        if not is_localhost:
+            logger.warning("\n" + "="*70)
+            logger.warning("⚠️  SECURITY WARNING: NON-LOCALHOST BINDING DETECTED")
+            logger.warning("="*70)
+            logger.warning(f"MCP server is binding to {host}:{port} (not localhost)")
+            logger.warning("This exposes ALL MCP tools (including device CLI execution) to the network")
+            logger.warning("without authentication. This is a HIGH SECURITY RISK.")
+            logger.warning("\nRECOMMENDATIONS:")
+            logger.warning("1. Bind to 127.0.0.1 or localhost instead (set MCP_HOST=127.0.0.1)")
+            logger.warning("2. Use firewall rules to restrict access to the port")
+            logger.warning("3. Only use 0.0.0.0 in isolated/trusted network environments")
+            logger.warning("="*70 + "\n")
+        
         logger.info(f"Starting MCP server with {transport.upper()} transport on {host}:{port}")
         mcp.run(transport=transport, host=host, port=port)
     else:
