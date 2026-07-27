@@ -89,8 +89,8 @@ This MCP server acts as a lightweight middleware layer between the **Cisco RADKi
    - **Default:** The server binds to `127.0.0.1` (localhost) for security
 
 3. **MCP Client Authentication:** Current implementation lacks MCP client authentication. Any client that can reach the server can access all exposed MCP tools, including:
-   - `exec_cli_commands_in_device` — arbitrary CLI execution on enrolled devices
-   - `snmp_get` — SNMP read access to managed infrastructure
+   - `exec_cli_commands_in_device`: arbitrary CLI execution on enrolled devices
+   - `snmp_get`: SNMP read access to managed infrastructure
    - Device inventory and attribute enumeration
 
 4. **Recommended for Production:**
