@@ -13,6 +13,7 @@ Environment Variables (with aliases):
 - MCP_TRANSPORT
 - MCP_HOST
 - MCP_PORT
+- MCP_ALLOW_INSECURE_NETWORK_BIND
 - RADKIT_DIRECT_HOST
 - RADKIT_DIRECT_PORT
 - RADKIT_DIRECT_TOKEN
@@ -120,15 +121,26 @@ class RADKitSettings(BaseSettings):
     )
 
     mcp_host: str = Field(
-        default="0.0.0.0",
+        default="127.0.0.1",
         alias="MCP_HOST",
-        description="MCP server host"
+        description="MCP server host (default: 127.0.0.1 for security; only change if you understand the risks)"
     )
 
     mcp_port: int = Field(
         default=8000,
         alias="MCP_PORT",
         description="MCP server port"
+    )
+
+    allow_insecure_network_bind: bool = Field(
+        default=False,
+        alias="MCP_ALLOW_INSECURE_NETWORK_BIND",
+        description=(
+            "Set to true to allow binding sse/http transport to a non-loopback address. "
+            "Only use in isolated/trusted environments (e.g. containers with host-side "
+            "loopback publish or a NetworkPolicy). The server exposes all tools without "
+            "authentication when this is enabled."
+        )
     )
 
     @property

@@ -24,7 +24,7 @@ A <strong>stand-alone MCP server</strong> built with <a href="https://github.com
 <br /><br />
 </div>
 
-> **Disclaimer**: This MCP Server is not an official Cisco product. It was developed for experimentation and learning purposes.
+> **Disclaimer**: This MCP Server is **example/proof-of-concept code** developed for experimentation and learning purposes **only**. It is not an official Cisco product. **Before deploying in any production environment, review the [Security Notice](#-security-notice) section for important information about network exposure, authentication, and access controls.**
 
 ---
 
@@ -75,6 +75,32 @@ This MCP server acts as a lightweight middleware layer between the **Cisco RADKi
 | `fastmcp` | 2.13.1 |
 
 
+## ⚠️ Security Notice
+
+**This is example/proof-of-concept code intended for learning and evaluation purposes.** Before using in any production environment:
+
+1. **Default Transport:** The default transport is `stdio` (local-only, not network-exposed). This is the most secure configuration.
+
+2. **Network Transports (SSE/HTTP):** If using `sse` or `http` transport:
+   - **Do NOT** bind to `0.0.0.0` in production environments without implementing:
+     - Proper network-level access controls (firewall rules, network policies)
+     - Client authentication mechanisms
+     - TLS/SSL encryption for network communications
+   - **Default:** The server binds to `127.0.0.1` (localhost) for security
+   - **Safety gate:** Non-loopback binds are refused unless `MCP_ALLOW_INSECURE_NETWORK_BIND=true` is explicitly set. This override does not add authentication or network isolation.
+
+3. **MCP Client Authentication:** Current implementation lacks MCP client authentication. Any client that can reach the server can access all exposed MCP tools, including:
+   - `exec_cli_commands_in_device`: arbitrary CLI execution on enrolled devices
+   - `snmp_get`: SNMP read access to managed infrastructure
+   - Device inventory and attribute enumeration
+
+4. **Recommended for Production:**
+   - Keep the default `stdio` transport for local clients (Claude Desktop, etc.)
+   - If network transport is required, implement proper authentication at the application level
+   - Use network isolation and firewall rules to restrict access
+   - Consider adding MCP client authentication middleware (e.g., bearer tokens)
+   - Review and understand the security implications before modifying defaults
+
 ## 🧰 Available MCP Tools
 
 | Tool | Description | Returns |
@@ -97,6 +123,8 @@ This MCP server acts as a lightweight middleware layer between the **Cisco RADKi
 | `stdio` | Standard I/O — for local clients (Claude Desktop, etc.) |
 | `sse` | Server-Sent Events over HTTP — for multiple network clients |
 | `http` | HTTP — for http environments |
+
+> **Upgrade note:** Existing `sse`/`http` deployments that bind to a non-loopback address will now refuse to start. After applying authentication and network isolation, set `MCP_ALLOW_INSECURE_NETWORK_BIND=true` to acknowledge and allow that exposure. Loopback and `stdio` deployments require no migration.
 
 ## 🛠️ Installation
 
@@ -161,9 +189,11 @@ If you select `http` or `sse`, you will also be prompted for host and port:
 
 ```
 ? Select MCP transport mode: http
-? Enter MCP host: 0.0.0.0
+? Enter MCP host: 127.0.0.1
 ? Enter MCP port: 8000
 ```
+
+⚠️ **Important:** For **local development only**, use `127.0.0.1` (the default). Do **not** use `0.0.0.0` unless you fully understand the security implications and have implemented proper network-level access controls and authentication.
 
 The `.env` file is saved in the project root. The server auto-detects certificates from `~/.radkit/identities/` — no additional configuration needed.
 
@@ -209,7 +239,7 @@ RADKIT_DIRECT_TOKEN=your-e2ee-token     # E2EE validation token from the Web UI
 # RADKIT_DIRECT_PORT=8181               # Optional, default is 8181
 
 MCP_TRANSPORT=sse   # or stdio / http
-MCP_HOST=0.0.0.0
+MCP_HOST=127.0.0.1  # Default to localhost for security; only change if you understand network exposure risks
 MCP_PORT=8000
 ```
 
@@ -292,10 +322,11 @@ services:
       - RADKIT_CA_B64=${RADKIT_CA_B64}
       - RADKIT_KEY_PASSWORD_B64=${RADKIT_KEY_PASSWORD_B64}
       - MCP_TRANSPORT=sse
-      - MCP_HOST=0.0.0.0
+      - MCP_HOST=0.0.0.0  # Binds inside the container namespace only, not the host network
+      - MCP_ALLOW_INSECURE_NETWORK_BIND=true  # Explicit opt-in; keep the bridge network trusted
       - MCP_PORT=8000
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"  # Limits host access; same-network containers can still connect
 ```
 
 ### Kubernetes Deployment
@@ -332,8 +363,49 @@ spec:
             secretKeyRef:
               name: radkit-certs
               key: private-key
+        - name: MCP_TRANSPORT
+          value: "sse"
+        - name: MCP_HOST
+          value: "0.0.0.0"  # Service traffic arrives on the pod IP, not loopback
+        - name: MCP_ALLOW_INSECURE_NETWORK_BIND
+          value: "true"  # Explicit opt-in; the NetworkPolicy below restricts callers
+        - name: MCP_PORT
+          value: "8000"
         # ... other env vars from secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: radkit-mcp
+spec:
+  selector:
+    app: radkit-mcp
+  ports:
+  - name: mcp
+    port: 8000
+    targetPort: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: restrict-radkit-mcp-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app: radkit-mcp
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          radkit-mcp-client: "true"
+    ports:
+    - protocol: TCP
+      port: 8000
 ```
+
+The policy allows only client pods in the same namespace with the label `radkit-mcp-client=true`. Adjust the selectors for your trust boundary, and verify that your cluster network plugin enforces `NetworkPolicy`.
 
 ## 🔌 Direct RPC Connection
 
@@ -368,7 +440,7 @@ RADKIT_DIRECT_TOKEN=your-e2ee-validation-token
 
 # Your MCP server details
 MCP_TRANSPORT=sse|stdio|http
-MCP_HOST=0.0.0.0
+MCP_HOST=127.0.0.1
 MCP_PORT=8000
 ```
 
@@ -404,10 +476,11 @@ services:
       - RADKIT_DIRECT_PORT=8181
       - RADKIT_DIRECT_TOKEN=your-e2ee-validation-token
       - MCP_TRANSPORT=sse
-      - MCP_HOST=0.0.0.0
+      - MCP_HOST=0.0.0.0  # Binds inside the container namespace only, not the host network
+      - MCP_ALLOW_INSECURE_NETWORK_BIND=true  # Explicit opt-in; keep radkit-net trusted
       - MCP_PORT=8000
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"  # Limits host access; same-network containers can still connect
       - "8081:8081"
     networks:
       - radkit-net

@@ -12,6 +12,7 @@ Supports dual-mode authentication:
 """
 
 from contextlib import asynccontextmanager
+import ipaddress
 import os
 import sys
 import logging
@@ -145,6 +146,32 @@ def main():
     if transport in ("sse", "http"):
         host = settings.mcp_host
         port = settings.mcp_port
+
+        # Security validation for network transports
+        try:
+            is_localhost = ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            is_localhost = host.rstrip(".").lower() == "localhost"
+
+        if not is_localhost:
+            if not settings.allow_insecure_network_bind:
+                logger.error(
+                    f"Refusing to start: MCP_HOST={host} binds to a non-loopback address, "
+                    "exposing unauthenticated tool access (including exec with sudo) to the network. "
+                    "Set MCP_ALLOW_INSECURE_NETWORK_BIND=true to override if you are in an "
+                    "isolated/trusted environment (e.g. a container with a host-side loopback publish)."
+                )
+                sys.exit(1)
+            logger.warning("\n" + "="*70)
+            logger.warning("⚠️  SECURITY WARNING: NON-LOCALHOST BINDING DETECTED")
+            logger.warning("="*70)
+            logger.warning(f"MCP server is binding to {host}:{port} (not localhost)")
+            logger.warning("This exposes ALL MCP tools (including device CLI execution) to the network")
+            logger.warning("without authentication. This is a HIGH SECURITY RISK.")
+            logger.warning("MCP_ALLOW_INSECURE_NETWORK_BIND=true is set — proceeding as operator override.")
+            logger.warning("Ensure network isolation (firewall rules, host-loopback publish, NetworkPolicy)")
+            logger.warning("is in place to restrict access to this port.")
+            logger.warning("="*70 + "\n")
 
         logger.info(f"Starting MCP server with {transport.upper()} transport on {host}:{port}")
         mcp.run(transport=transport, host=host, port=port)
