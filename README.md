@@ -320,6 +320,7 @@ services:
       - RADKIT_KEY_PASSWORD_B64=${RADKIT_KEY_PASSWORD_B64}
       - MCP_TRANSPORT=sse
       - MCP_HOST=0.0.0.0  # Binds inside the container namespace only, not the host network
+      - MCP_ALLOW_INSECURE_NETWORK_BIND=true  # Required when MCP_HOST is non-loopback; isolation is enforced by the host-side publish below
       - MCP_PORT=8000
     ports:
       - "127.0.0.1:8000:8000"  # Only the host's loopback can reach it
@@ -361,6 +362,8 @@ spec:
               key: private-key
         - name: MCP_HOST
           value: "0.0.0.0"  # Required: Service traffic and kubelet probes arrive on the pod IP, not loopback
+        - name: MCP_ALLOW_INSECURE_NETWORK_BIND
+          value: "true"  # Required when MCP_HOST is non-loopback; enforce isolation via NetworkPolicy
         # ... other env vars from secret
 ```
 
@@ -434,6 +437,7 @@ services:
       - RADKIT_DIRECT_TOKEN=your-e2ee-validation-token
       - MCP_TRANSPORT=sse
       - MCP_HOST=0.0.0.0  # Binds inside the container namespace only, not the host network
+      - MCP_ALLOW_INSECURE_NETWORK_BIND=true  # Required when MCP_HOST is non-loopback; isolation is enforced by the host-side publish below
       - MCP_PORT=8000
     ports:
       - "127.0.0.1:8000:8000"  # Only the host's loopback can reach it

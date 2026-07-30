@@ -131,6 +131,17 @@ class RADKitSettings(BaseSettings):
         description="MCP server port"
     )
 
+    allow_insecure_network_bind: bool = Field(
+        default=False,
+        alias="MCP_ALLOW_INSECURE_NETWORK_BIND",
+        description=(
+            "Set to true to allow binding sse/http transport to a non-loopback address. "
+            "Only use in isolated/trusted environments (e.g. containers with host-side "
+            "loopback publish or a NetworkPolicy). The server exposes all tools without "
+            "authentication when this is enabled."
+        )
+    )
+
     @property
     def radkit_identity(self) -> Optional[str]:
         """Get identity with fallback to alias."""
