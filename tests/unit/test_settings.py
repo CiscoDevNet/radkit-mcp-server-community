@@ -40,6 +40,7 @@ def test_settings_structure():
     assert hasattr(settings, 'mcp_transport')
     assert hasattr(settings, 'mcp_host')
     assert hasattr(settings, 'mcp_port')
+    assert hasattr(settings, 'allow_insecure_network_bind')
 
 
 @pytest.mark.unit
@@ -66,3 +67,27 @@ def test_settings_has_base64_credentials_method():
 
     # Should return a boolean
     assert isinstance(result, bool)
+
+
+@pytest.mark.unit
+def test_network_bind_security_defaults(monkeypatch):
+    """Network binding defaults to loopback and requires no override."""
+    from radkit_mcp.settings import RADKitSettings
+
+    monkeypatch.delenv('MCP_HOST', raising=False)
+    monkeypatch.delenv('MCP_ALLOW_INSECURE_NETWORK_BIND', raising=False)
+    settings = RADKitSettings(_env_file=None)
+
+    assert settings.mcp_host == '127.0.0.1'
+    assert settings.allow_insecure_network_bind is False
+
+
+@pytest.mark.unit
+def test_network_bind_override_from_environment(monkeypatch):
+    """The explicit non-loopback override is parsed from the environment."""
+    from radkit_mcp.settings import RADKitSettings
+
+    monkeypatch.setenv('MCP_ALLOW_INSECURE_NETWORK_BIND', 'true')
+    settings = RADKitSettings(_env_file=None)
+
+    assert settings.allow_insecure_network_bind is True

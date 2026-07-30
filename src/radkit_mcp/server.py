@@ -151,8 +151,8 @@ def main():
         try:
             is_localhost = ipaddress.ip_address(host).is_loopback
         except ValueError:
-            is_localhost = host == "localhost"
-        
+            is_localhost = host.rstrip(".").lower() == "localhost"
+
         if not is_localhost:
             if not settings.allow_insecure_network_bind:
                 logger.error(
@@ -172,7 +172,7 @@ def main():
             logger.warning("Ensure network isolation (firewall rules, host-loopback publish, NetworkPolicy)")
             logger.warning("is in place to restrict access to this port.")
             logger.warning("="*70 + "\n")
-        
+
         logger.info(f"Starting MCP server with {transport.upper()} transport on {host}:{port}")
         mcp.run(transport=transport, host=host, port=port)
     else:

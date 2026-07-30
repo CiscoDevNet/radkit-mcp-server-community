@@ -87,6 +87,7 @@ This MCP server acts as a lightweight middleware layer between the **Cisco RADKi
      - Client authentication mechanisms
      - TLS/SSL encryption for network communications
    - **Default:** The server binds to `127.0.0.1` (localhost) for security
+   - **Safety gate:** Non-loopback binds are refused unless `MCP_ALLOW_INSECURE_NETWORK_BIND=true` is explicitly set. This override does not add authentication or network isolation.
 
 3. **MCP Client Authentication:** Current implementation lacks MCP client authentication. Any client that can reach the server can access all exposed MCP tools, including:
    - `exec_cli_commands_in_device`: arbitrary CLI execution on enrolled devices
@@ -122,6 +123,8 @@ This MCP server acts as a lightweight middleware layer between the **Cisco RADKi
 | `stdio` | Standard I/O — for local clients (Claude Desktop, etc.) |
 | `sse` | Server-Sent Events over HTTP — for multiple network clients |
 | `http` | HTTP — for http environments |
+
+> **Upgrade note:** Existing `sse`/`http` deployments that bind to a non-loopback address will now refuse to start. After applying authentication and network isolation, set `MCP_ALLOW_INSECURE_NETWORK_BIND=true` to acknowledge and allow that exposure. Loopback and `stdio` deployments require no migration.
 
 ## 🛠️ Installation
 
@@ -320,10 +323,10 @@ services:
       - RADKIT_KEY_PASSWORD_B64=${RADKIT_KEY_PASSWORD_B64}
       - MCP_TRANSPORT=sse
       - MCP_HOST=0.0.0.0  # Binds inside the container namespace only, not the host network
-      - MCP_ALLOW_INSECURE_NETWORK_BIND=true  # Required when MCP_HOST is non-loopback; isolation is enforced by the host-side publish below
+      - MCP_ALLOW_INSECURE_NETWORK_BIND=true  # Explicit opt-in; keep the bridge network trusted
       - MCP_PORT=8000
     ports:
-      - "127.0.0.1:8000:8000"  # Only the host's loopback can reach it
+      - "127.0.0.1:8000:8000"  # Limits host access; same-network containers can still connect
 ```
 
 ### Kubernetes Deployment
@@ -360,12 +363,49 @@ spec:
             secretKeyRef:
               name: radkit-certs
               key: private-key
+        - name: MCP_TRANSPORT
+          value: "sse"
         - name: MCP_HOST
-          value: "0.0.0.0"  # Required: Service traffic and kubelet probes arrive on the pod IP, not loopback
+          value: "0.0.0.0"  # Service traffic arrives on the pod IP, not loopback
         - name: MCP_ALLOW_INSECURE_NETWORK_BIND
-          value: "true"  # Required when MCP_HOST is non-loopback; enforce isolation via NetworkPolicy
+          value: "true"  # Explicit opt-in; the NetworkPolicy below restricts callers
+        - name: MCP_PORT
+          value: "8000"
         # ... other env vars from secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: radkit-mcp
+spec:
+  selector:
+    app: radkit-mcp
+  ports:
+  - name: mcp
+    port: 8000
+    targetPort: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: restrict-radkit-mcp-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app: radkit-mcp
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          radkit-mcp-client: "true"
+    ports:
+    - protocol: TCP
+      port: 8000
 ```
+
+The policy allows only client pods in the same namespace with the label `radkit-mcp-client=true`. Adjust the selectors for your trust boundary, and verify that your cluster network plugin enforces `NetworkPolicy`.
 
 ## 🔌 Direct RPC Connection
 
@@ -437,10 +477,10 @@ services:
       - RADKIT_DIRECT_TOKEN=your-e2ee-validation-token
       - MCP_TRANSPORT=sse
       - MCP_HOST=0.0.0.0  # Binds inside the container namespace only, not the host network
-      - MCP_ALLOW_INSECURE_NETWORK_BIND=true  # Required when MCP_HOST is non-loopback; isolation is enforced by the host-side publish below
+      - MCP_ALLOW_INSECURE_NETWORK_BIND=true  # Explicit opt-in; keep radkit-net trusted
       - MCP_PORT=8000
     ports:
-      - "127.0.0.1:8000:8000"  # Only the host's loopback can reach it
+      - "127.0.0.1:8000:8000"  # Limits host access; same-network containers can still connect
       - "8081:8081"
     networks:
       - radkit-net

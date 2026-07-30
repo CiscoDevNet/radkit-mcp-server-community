@@ -21,7 +21,8 @@ If you choose to use `sse` or `http` transport for network access:
 #### ⚠️ Known Limitations
 1. **No MCP Client Authentication:** The current implementation does not authenticate MCP clients. Any client that can reach the server can invoke all exposed MCP tools.
 2. **Network Exposure Risk:** By default, the server binds to `127.0.0.1` (localhost). If changed to `0.0.0.0` or other network addresses, the server becomes accessible from the network without authentication.
-3. **Tool Exposure:** Exposed MCP tools provide privileged access:
+3. **Non-loopback Safety Gate:** The server refuses non-loopback binds unless `MCP_ALLOW_INSECURE_NETWORK_BIND=true` is set. This flag is only an explicit acknowledgement; it does not provide authentication, encryption, or isolation.
+4. **Tool Exposure:** Exposed MCP tools provide privileged access:
    - `exec_cli_commands_in_device`: arbitrary CLI execution on enrolled Cisco devices
    - `exec_command`: additional command execution vector
    - `snmp_get`: SNMP read access to managed infrastructure
@@ -33,6 +34,8 @@ If you choose to use `sse` or `http` transport for network access:
 - **Add authentication layer:** Consider implementing FastMCP middleware with bearer tokens or other authentication mechanisms
 - **Use TLS/SSL:** Encrypt network communications between client and server
 - **Review access controls:** Understand the security implications of the exposed tools and network configuration
+
+Existing deployments that use a non-loopback `MCP_HOST` must add `MCP_ALLOW_INSECURE_NETWORK_BIND=true` after applying these controls. Without the explicit override, the server exits during startup.
 
 #### Examples of Secure Network Deployment
 ```bash
@@ -54,6 +57,7 @@ MCP_PORT=8000
 MCP_TRANSPORT=sse
 MCP_HOST=0.0.0.0  # Network-accessible without authentication
 MCP_PORT=8000
+MCP_ALLOW_INSECURE_NETWORK_BIND=true  # Allows startup but does not make this secure
 ```
 
 ## Disclosing a security issue
