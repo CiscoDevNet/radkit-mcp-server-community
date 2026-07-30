@@ -319,10 +319,10 @@ services:
       - RADKIT_CA_B64=${RADKIT_CA_B64}
       - RADKIT_KEY_PASSWORD_B64=${RADKIT_KEY_PASSWORD_B64}
       - MCP_TRANSPORT=sse
-      - MCP_HOST=127.0.0.1  # Default to localhost; only change if using proper network isolation
+      - MCP_HOST=0.0.0.0  # Binds inside the container namespace only, not the host network
       - MCP_PORT=8000
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"  # Only the host's loopback can reach it
 ```
 
 ### Kubernetes Deployment
