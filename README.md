@@ -400,7 +400,7 @@ RADKIT_DIRECT_TOKEN=your-e2ee-validation-token
 
 # Your MCP server details
 MCP_TRANSPORT=sse|stdio|http
-MCP_HOST=0.0.0.0
+MCP_HOST=127.0.0.1
 MCP_PORT=8000
 ```
 

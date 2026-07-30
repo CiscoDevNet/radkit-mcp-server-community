@@ -72,7 +72,7 @@ def generate_env():
     if transport in ["http", "sse"]:
         mcp_host = questionary.text(
             "Enter MCP host:",
-            default="0.0.0.0"
+            default="127.0.0.1"
         ).ask()
         
         mcp_port = questionary.text(
