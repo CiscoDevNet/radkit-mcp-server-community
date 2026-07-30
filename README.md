@@ -433,10 +433,10 @@ services:
       - RADKIT_DIRECT_PORT=8181
       - RADKIT_DIRECT_TOKEN=your-e2ee-validation-token
       - MCP_TRANSPORT=sse
-      - MCP_HOST=127.0.0.1  # Default to localhost for security
+      - MCP_HOST=0.0.0.0  # Binds inside the container namespace only, not the host network
       - MCP_PORT=8000
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"  # Only the host's loopback can reach it
       - "8081:8081"
     networks:
       - radkit-net
