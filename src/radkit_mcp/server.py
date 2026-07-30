@@ -147,7 +147,10 @@ def main():
         port = settings.mcp_port
 
         # Security validation for network transports
-        is_localhost = host in ("127.0.0.1", "localhost", "::1")
+        try:
+            is_localhost = ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            is_localhost = host == "localhost"
         
         if not is_localhost:
             logger.warning("\n" + "="*70)
