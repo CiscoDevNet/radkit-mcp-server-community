@@ -360,7 +360,7 @@ spec:
               name: radkit-certs
               key: private-key
         - name: MCP_HOST
-          value: "127.0.0.1"  # Default to localhost for security
+          value: "0.0.0.0"  # Required: Service traffic and kubelet probes arrive on the pod IP, not loopback
         # ... other env vars from secret
 ```
 
