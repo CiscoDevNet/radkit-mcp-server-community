@@ -24,6 +24,8 @@ def _settings(transport="sse", host="127.0.0.1", allowed=False):
         "127.0.0.2",
         "::1",
         "0:0:0:0:0:0:0:1",
+        "::ffff:127.0.0.1",
+        "::ffff:7f00:1",
         "localhost",
         "LOCALHOST.",
     ],
