@@ -91,6 +91,8 @@ This MCP server acts as a lightweight middleware layer between the **Cisco RADKi
 
 3. **MCP Client Authentication:** Current implementation lacks MCP client authentication. Any client that can reach the server can access all exposed MCP tools, including:
    - `exec_cli_commands_in_device`: arbitrary CLI execution on enrolled devices
+   - `forward_tcp_port`: unauthenticated localhost TCP access to allowed device ports
+   - `scp_download` / `scp_upload`: read or overwrite device files up to 10 MiB
    - `snmp_get`: SNMP read access to managed infrastructure
    - Device inventory and attribute enumeration
 
@@ -108,6 +110,9 @@ This MCP server acts as a lightweight middleware layer between the **Cisco RADKi
 | `get_device_inventory_names()` | Returns the names of all devices in the RADKit inventory. | `str` |
 | `get_device_attributes(target_device)` | Returns detailed JSON attributes for a specific device (name, host, type, SNMP/NETCONF status, capabilities, etc.). | `str` (JSON) |
 | `exec_cli_commands_in_device(target_device, cli_commands, timeout?, max_lines?, service_serial?)` | Executes one or more CLI commands on a device. Returns raw string output. | `str` |
+| `forward_tcp_port(device_name, local_port, destination_port, service_serial?)` | Forwards a localhost TCP port to an allowed TCP port on a device until the MCP server shuts down. | `dict` |
+| `scp_download(device_name, remote_path, service_serial?)` | Downloads a device file up to 10 MiB as base64 without writing to the MCP server filesystem. | `dict` |
+| `scp_upload(device_name, remote_path, content_base64, confirm_write?, service_serial?)` | Previews a base64 upload up to 10 MiB; writes or overwrites the device file only with explicit confirmation. | `dict` |
 | `snmp_get(device_name, oid, service_serial?, timeout?)` | Performs SNMP GET for one or more OIDs on a device. | `list[dict]` |
 | `exec_command(device_name, command, service_serial?, timeout?, max_lines?)` | Executes commands and returns structured output (status, truncation info). | `dict\|list[dict]` |
 

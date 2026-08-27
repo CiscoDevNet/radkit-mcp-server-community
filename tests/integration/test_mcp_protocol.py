@@ -36,6 +36,9 @@ async def test_list_tools():
         tool_names = [tool.name for tool in tools]
         assert "snmp_get" in tool_names
         assert "exec_command" in tool_names
+        assert "forward_tcp_port" in tool_names
+        assert "scp_download" in tool_names
+        assert "scp_upload" in tool_names
         assert "get_device_inventory_names_tool" in tool_names
         assert "get_device_attributes_tool" in tool_names
 

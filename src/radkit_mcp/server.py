@@ -28,14 +28,14 @@ try:
     from . import client as radkit_client_module
     from .settings import get_settings
     from .tools.inventory import get_device_inventory_names, get_device_attributes
-    from .tools.mcp_tools import register_exec_tools, register_snmp_tools
+    from .tools.mcp_tools import register_exec_tools, register_port_forwarding_tools, register_scp_tools, register_snmp_tools
 except ImportError:
     # Running as standalone script - add parent to path
     sys.path.insert(0, str(Path(__file__).parent))
     import client as radkit_client_module
     from settings import get_settings
     from tools.inventory import get_device_inventory_names, get_device_attributes
-    from tools.mcp_tools import register_exec_tools, register_snmp_tools
+    from tools.mcp_tools import register_exec_tools, register_port_forwarding_tools, register_scp_tools, register_snmp_tools
 
 
 # Load environment variables from .env file if present
@@ -97,6 +97,8 @@ mcp = FastMCP(
 
 # Register MCP tools
 register_exec_tools(mcp)
+register_port_forwarding_tools(mcp)
+register_scp_tools(mcp)
 register_snmp_tools(mcp)
 
 
